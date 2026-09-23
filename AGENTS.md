@@ -33,13 +33,15 @@ cmd /c "clasp deploy -i AKfycbyAL4LeawoztLWI7ME_UrTSmuHIJTqzuFnkLdxCbKL4jYtbOSPs
 
 Setara dengan `npm run deploy` (butuh clasp global; `node_modules` tidak diinstal).
 
-## Keadaan terakhir (v2.0.19)
+## Keadaan terakhir (v2.0.22)
 
 - Target deploy = **proyek salinan** (scriptId di `.clasp.json`, deployment `AKfycby...`). Deployment lama read-only `AKfycbw4o... @HEAD` menjalankan kode terbaru juga.
 - Jalur cepat **Advanced Sheets service** aktif (`probeApi:true`); konteks web app TIDAK punya `script.external_request`, jadi UrlFetchApp TIDAK dipakai — semua baca/tulis external & mirror lewat `Sheets.*`. `sheetsApiFetch_()` adalah wrapper ke `Sheets.Spreadsheets.Values.get/append/batchUpdate`.
-- Cache voucher eksternal & semua cache mirror TTL 12 jam (`43200`); `cacheGetBig_` pakai `getAll`, `cachePutBig_` pakai `putAll` (fallback per-kunci bila quota).
-- setupWarmTrigger: WAJIB dijalankan sekali di editor proyek aktif agar cache tidak dingin (baca dingin dari sheet besar masih 20-30 detik).
-- Bump patch versi di `Code.gs` + 2 label di `Index.html` setiap rilis.
+- **Cache voucher eksternal format kompak** `{h, v}` (`voucherCacheDecode_`, `patchVoucherCacheCompact_`); format lama array-objek dikonversi ke kompak saat patch. Isolasi hanya key `voucher_<id>_<sheet>`; cache lain tetap array-objek. Hit memaksa decode+normalisasi ulang (sesiRead ~1,2s tak turun; yang menang: patchCache 2970→1832ms).
+- **Batch tulis mirror lokal**: `mirrorBatchBegin_`/`mirrorBatchPush_`/`mirrorBatchCommit_` menggabungkan semua tulis `Sheets.*` ke workbook SPARTA (voucher mirror cell via `mirrorSetCellsBulk_`, piutang & mutasi append via `mirrorAppendRows_`) menjadi **1 `Values.batchUpdate`** di akhir `redeemVoucher` (dengan fallback `setColBatch_`/`setValues` dan commit pengaman di `finally`). Bila batch tidak aktif (probe false), tiap fungsi memakai jalur lamanya sendiri.
+- Cache voucher eksternal & semua cache mirror TTL 12 jam (`43200`) — termasuk `patchMirrorCacheStatus_` (sebelumnya 300).
+- setupWarmTrigger: WAJIB dijalankan sekali di editor proyek aktif agar cache tidak dingin (baca dingin dari sheet besar masih 20-30 detik; loadDashboard dingin terukur ~32s).
+- Los/test: 2 redeem berturut-turut di incognito (footer versi), seg dari F12; server ±11-13s, patchCache 1,8-2,3s.
 
 ## Catatan teknis
 
