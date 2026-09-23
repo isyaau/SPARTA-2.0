@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.8';
+var APP_VERSION = '2.0.9';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -4811,4 +4811,17 @@ function diagnostik() {
   var out = lines.join('\n');
   Logger.log(out);
   return { ok: true, info: out };
+}
+
+/** JALANKAN SEKALI di editor Apps Script untuk memicu izin script.external_request
+ *  (dipakai akses Sheets REST API). Read-only, aman. */
+function tesSheetsApi() {
+  var v = getVoucherConfig_();
+  if (!v.spreadsheetId) return { ok: false, pesan: 'Voucher spreadsheet belum dikonfigurasi.' };
+  try {
+    var headers = getSheetHeadersExt_(v.spreadsheetId, v.sheetName);
+    return { ok: true, jumlahKolom: (headers || []).length, kolom: (headers || []).slice(0, 15), pesan: 'Akses Sheets API BERHASIL. Coba redeem lagi di web app.' };
+  } catch (e) {
+    return { ok: false, error: String(e.message || ''), pesan: 'Masih gagal. Pastikan muncul dialog izin lalu pilih Allow.' };
+  }
 }
