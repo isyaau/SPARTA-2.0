@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.13';
+var APP_VERSION = '2.0.14';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -1082,16 +1082,21 @@ function sheetsApiFetch_(spreadsheetId, path, payload, method) {
 
 /** Deteksi izin Sheets REST API (script.external_request) sekali per eksekusi.
  *  Bila izin belum ada, jalur SpreadsheetApp dipakai sebagai pengganti otomatis. */
+var _sheetsApiErr_ = '';
 var _sheetsApiOk_ = null;
 function sheetsApiProbe_() {
   if (_sheetsApiOk_ !== null) return _sheetsApiOk_;
   var v = getVoucherConfig_();
   _sheetsApiOk_ = false;
+  _sheetsApiErr_ = 'no config';
   if (v.spreadsheetId) {
     try {
       sheetsApiFetch_(v.spreadsheetId, '/values/' + encodeURIComponent(sheetRefA1_(v.sheetName || 'Voucher') + '!1:1'));
       _sheetsApiOk_ = true;
-    } catch (e) {}
+      _sheetsApiErr_ = '';
+    } catch (e) {
+      _sheetsApiErr_ = String(e.message || e).slice(0, 160);
+    }
   }
   return _sheetsApiOk_;
 }
@@ -3925,6 +3930,9 @@ function redeemVoucher(data) {
   var _seg = _tStart;
   var _perf = {};
   _perf.probeApi = sheetsApiProbe_();
+  _perf.probeErr = _sheetsApiErr_;
+  _perf.scriptId = ScriptApp.getScriptId();
+  _perf.ver = APP_VERSION;
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   _perf.lock = Date.now() - _seg;
