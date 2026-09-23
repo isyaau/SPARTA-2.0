@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.20';
+var APP_VERSION = '2.0.21';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -644,8 +644,16 @@ function patchVoucherCacheCompact_(key, ttl, patchFn) {
   var hit = cacheGetBig_(key);
   if (!hit) return;
   if (Array.isArray(hit)) {
+    var hdr0 = ['Row'];
+    if (hit.length) {
+      hit[0] || {};
+      Object.keys(hit[0] || {}).forEach(function (h) { if (hdr0.indexOf(h) < 0) hdr0.push(h); });
+    }
     patchFn(hit);
-    cachePutBig_(key, hit, ttl);
+    var rowsO = hit.map(function (o) {
+      return hdr0.map(function (h) { return (o[h] === undefined || o[h] === null) ? '' : o[h]; });
+    });
+    cachePutBig_(key, { h: hdr0, v: rowsO }, ttl);
     return;
   }
   if (!hit || !Array.isArray(hit.h) || !Array.isArray(hit.v)) return;
