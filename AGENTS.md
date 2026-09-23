@@ -33,12 +33,12 @@ cmd /c "clasp deploy -i AKfycbyAL4LeawoztLWI7ME_UrTSmuHIJTqzuFnkLdxCbKL4jYtbOSPs
 
 Setara dengan `npm run deploy` (butuh clasp global; `node_modules` tidak diinstal).
 
-## Keadaan terakhir (v2.0.13)
+## Keadaan terakhir (v2.0.19)
 
-- Target deploy = **proyek salinan** (scriptId ada di `.clasp.json`, deployment `AKfycby...`). Deployment lama read-only `AKfycbw4o... @HEAD` menjalankan kode terbaru juga.
-- Konteks web app **tidak punya scope `script.external_request`** (`probeApi:false` di seg redeem). Kode otomatis fallback ke `SpreadsheetApp`; probe `sheetsApiProbe_()` mengecek sekali per eksekusi dan otomatis pindah ke jalur Sheets REST bila scope tersedia.
-- Cache voucher eksternal TTL 12 jam (`43200`); baca dingin via Sheets REST bila scope ada, atau `SpreadsheetApp` bila tidak.
-- **WAJIB jalankan `setupWarmTrigger()` sekali di editor proyek aktif** agar cache tidak dingin (baca dingin bisa 30-40 detik).
+- Target deploy = **proyek salinan** (scriptId di `.clasp.json`, deployment `AKfycby...`). Deployment lama read-only `AKfycbw4o... @HEAD` menjalankan kode terbaru juga.
+- Jalur cepat **Advanced Sheets service** aktif (`probeApi:true`); konteks web app TIDAK punya `script.external_request`, jadi UrlFetchApp TIDAK dipakai — semua baca/tulis external & mirror lewat `Sheets.*`. `sheetsApiFetch_()` adalah wrapper ke `Sheets.Spreadsheets.Values.get/append/batchUpdate`.
+- Cache voucher eksternal & semua cache mirror TTL 12 jam (`43200`); `cacheGetBig_` pakai `getAll`, `cachePutBig_` pakai `putAll` (fallback per-kunci bila quota).
+- setupWarmTrigger: WAJIB dijalankan sekali di editor proyek aktif agar cache tidak dingin (baca dingin dari sheet besar masih 20-30 detik).
 - Bump patch versi di `Code.gs` + 2 label di `Index.html` setiap rilis.
 
 ## Catatan teknis
