@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.16';
+var APP_VERSION = '2.0.17';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -564,10 +564,26 @@ function cacheGetBig_(key) {
   if (v.indexOf('#c') === 0) {
     var chunks = parseInt(v.substring(2), 10) || 0;
     var parts = [];
-    for (var i = 1; i <= chunks; i++) {
-      var pv = cache.get(key + '#' + i);
-      if (pv === null || pv === undefined) return null;
-      parts.push(pv);
+    var gotAll = false;
+    if (chunks > 1) {
+      try {
+        var keys = [];
+        for (var i = 1; i <= chunks; i++) keys.push(key + '#' + i);
+        var all = cache.getAll(keys);
+        for (var j = 1; j <= chunks; j++) {
+          var pv = all[key + '#' + j];
+          if (pv === null || pv === undefined) return null;
+          parts.push(pv);
+        }
+        gotAll = true;
+      } catch (e2) {}
+    }
+    if (!gotAll) {
+      for (var k = 1; k <= chunks; k++) {
+        var pv2 = cache.get(key + '#' + k);
+        if (pv2 === null || pv2 === undefined) return null;
+        parts.push(pv2);
+      }
     }
     v = parts.join('');
   }
@@ -1031,11 +1047,16 @@ function colLetter_(n) {
   return s || 'A';
 }
 
-/** Baca baris header (nilai) sheet eksternal — 1 panggilan REST. */
+/** Baca baris header (nilai) sheet eksternal — cache per eksekusi. */
+var _extHdrCache_ = {};
 function getSheetHeadersExt_(spreadsheetId, sheetName) {
+  var ck = spreadsheetId + '::' + (sheetName || '');
+  if (_extHdrCache_[ck]) return _extHdrCache_[ck];
   var resp = sheetsApiFetch_(spreadsheetId, '/values/' + encodeURIComponent(sheetRefA1_(sheetName) + '!1:1'));
   var vals = (resp && resp.values) || [];
-  return (vals[0] || []).map(function (h) { return String(h == null ? '' : h).trim(); });
+  var hdr = (vals[0] || []).map(function (h) { return String(h == null ? '' : h).trim(); });
+  _extHdrCache_[ck] = hdr;
+  return hdr;
 }
 
 /** Baca satu kolom mulai dari startRow (default 2) hingga data terakhir. */
