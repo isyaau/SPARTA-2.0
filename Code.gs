@@ -1011,7 +1011,7 @@ function colLetter_(n) {
 
 /** Baca baris header (nilai) sheet eksternal — 1 panggilan REST. */
 function getSheetHeadersExt_(spreadsheetId, sheetName) {
-  var resp = Sheets.Spreadsheets.Values.get(spreadsheetId, sheetRefA1_(sheetName) + '!1:1');
+  var resp = sheetsApiFetch_(spreadsheetId, '/values/' + encodeURIComponent(sheetRefA1_(sheetName) + '!1:1'));
   var vals = (resp && resp.values) || [];
   return (vals[0] || []).map(function (h) { return String(h == null ? '' : h).trim(); });
 }
@@ -1020,7 +1020,7 @@ function getSheetHeadersExt_(spreadsheetId, sheetName) {
 function getExtColumnValues_(spreadsheetId, sheetName, colNum, startRow) {
   var r = startRow || 2;
   var pref = sheetRefA1_(sheetName) + '!' + colLetter_(colNum);
-  var resp = Sheets.Spreadsheets.Values.get(spreadsheetId, pref + r + ':' + colLetter_(colNum));
+  var resp = sheetsApiFetch_(spreadsheetId, '/values/' + encodeURIComponent(pref + r + ':' + colLetter_(colNum)));
   var vals = (resp && resp.values) || [];
   var out = [];
   vals.forEach(function (row) { out.push(row[0] == null ? '' : row[0]); });
@@ -1037,13 +1037,32 @@ function setStatusExtBatch_(spreadsheetId, sheetName, statusCol, rowValues) {
     data.push({ range: pref + Number(r), values: [[v]] });
   });
   if (!data.length) return;
-  Sheets.Spreadsheets.Values.batchUpdate({ valueInputOption: 'USER_ENTERED', data: data }, spreadsheetId);
+  sheetsApiFetch_(spreadsheetId, '/values:batchUpdate', { valueInputOption: 'USER_ENTERED', data: data }, 'POST');
 }
 
 /** Tambah baris ke sheet eksternal (posisi setelah baris terakhir) — 1 panggilan. */
 function appendRowsExt_(spreadsheetId, sheetName, valuesList) {
   if (!valuesList || !valuesList.length) return;
-  Sheets.Spreadsheets.Values.append(spreadsheetId, sheetRefA1_(sheetName) + '!A1', { values: valuesList }, { valueInputOption: 'USER_ENTERED' });
+  sheetsApiFetch_(spreadsheetId, '/values/' + encodeURIComponent(sheetRefA1_(sheetName) + '!A1') + ':append?valueInputOption=USER_ENTERED', { values: valuesList }, 'POST');
+}
+
+/** Panggilan umum ke Google Sheets API v4 via UrlFetchApp (tanpa dependensi
+ *  Advanced Service di manifes, agar kompatibel clasp). */
+function sheetsApiFetch_(spreadsheetId, path, payload, method) {
+  var token = ScriptApp.getOAuthToken();
+  var params = {
+    method: method || 'GET',
+    headers: { Authorization: 'Bearer ' + token },
+    contentType: 'application/json',
+    muteHttpExceptions: true
+  };
+  if (payload !== undefined && payload !== null) params.payload = JSON.stringify(payload);
+  var url = 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(spreadsheetId) + path;
+  var resp = UrlFetchApp.fetch(url, params);
+  var code = resp.getResponseCode();
+  var body = resp.getContentText();
+  if (code < 200 || code >= 300) throw new Error('Sheets API ' + code + ': ' + String(body).slice(0, 300));
+  return body ? JSON.parse(body) : {};
 }
 
 function buatNotaTokoExt_(spreadsheetId, sheetName, kodeToko, dayKey, nota4) {
