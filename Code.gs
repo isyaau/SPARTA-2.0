@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.15';
+var APP_VERSION = '2.0.16';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -528,22 +528,29 @@ function cachePutBig_(key, obj, ttl) {
     var cache = CacheService.getScriptCache();
     var j = JSON.stringify(obj);
     if (!j) return;
-    if (j.length <= CACHE_CHUNK_MAX) {
-      cache.put(key, j, ttl || 900);
-      cache.remove(key + '#1');
-      perf_('cachePut ' + key + ' (1)', _t0);
-      return;
-    }
+    var t = ttl || 900;
     var old = cache.get(key);
     if (old && old.indexOf('#c') === 0) {
       var oldN = parseInt(old.substring(2), 10) || 0;
       for (var o = 1; o <= oldN; o++) cache.remove(key + '#' + o);
     }
-    var chunks = Math.ceil(j.length / CACHE_CHUNK_MAX);
-    for (var i = 1; i <= chunks; i++) {
-      cache.put(key + '#' + i, j.substr((i - 1) * CACHE_CHUNK_MAX, CACHE_CHUNK_MAX), ttl || 900);
+    if (j.length <= CACHE_CHUNK_MAX) {
+      cache.put(key, j, t);
+      cache.remove(key + '#1');
+      perf_('cachePut ' + key + ' (1)', _t0);
+      return;
     }
-    cache.put(key, '#c' + chunks, ttl || 900);
+    var chunks = Math.ceil(j.length / CACHE_CHUNK_MAX);
+    var objAll = {};
+    for (var i = 1; i <= chunks; i++) {
+      objAll[key + '#' + i] = j.substr((i - 1) * CACHE_CHUNK_MAX, CACHE_CHUNK_MAX);
+    }
+    objAll[key] = '#c' + chunks;
+    try {
+      cache.putAll(objAll, t);
+    } catch (e2) {
+      for (var k in objAll) cache.put(k, objAll[k], t);
+    }
     perf_('cachePut ' + key + ' (n=' + chunks + ')', _t0);
   } catch (e) {}
 }
