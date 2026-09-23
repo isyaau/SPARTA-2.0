@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.2';
+var APP_VERSION = '2.0.3';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -357,7 +357,10 @@ function nextIdTanggal_(sheet, column, prefix, tanggalStr) {
   var re = new RegExp('^' + prefix + dayKey + '(\\d+)$');
   var maxNum = 0;
   if (lastRow > 1) {
-    var data = sheet.getRange(2, colIndex, lastRow - 1).getValues();
+    // Baris mutasi selalu ditambahkan di bawah secara kronologis, jadi
+    // maksimum ID harian pasti ada di ekor sheet — scan 10 ribu baris terakhir.
+    var scanStart = Math.max(2, lastRow - 9998);
+    var data = sheet.getRange(scanStart, colIndex, lastRow - scanStart + 1).getValues();
     data.forEach(function (r) {
       var m = String(r[0]).match(re);
       if (m) {
@@ -1008,20 +1011,40 @@ function mirrorSetCellsBulk_(kind, table, matchHeader, setHeader, kodeList, setV
     if (matchCol < 1 || setCol < 1) return;
     var lastRow = Math.max(sheet.getLastRow(), 1);
     var isKode = isKodeTextCol_(matchHeader);
-    var ids = lastRow > 1 ? sheet.getRange(2, matchCol, lastRow - 1, 1).getValues() : [];
-    var rowByKey = {};
-    for (var i = 0; i < ids.length; i++) {
-      var raw = String(ids[i][0] === undefined || ids[i][0] === null ? '' : ids[i][0]).trim().replace(/^'/, '');
-      if (!raw) continue;
-      rowByKey[isKode ? raw.replace(/^0+/, '') : raw] = i + 2;
-    }
     var rowValues = {};
-    kodeList.forEach(function (kode) {
-      var k = String(kode || '').trim().replace(/^'/, '');
-      if (!k) return;
-      var key = isKode ? k.replace(/^0+/, '') : k;
-      if (rowByKey[key] !== undefined) rowValues[rowByKey[key]] = setValue;
-    });
+    var cached = cacheGetBig_(mirrorCacheKey_(kind, table));
+    if (Array.isArray(cached) && cached.length) {
+      // Bila cache mirror hangat, petakan kode -> baris dari cache sehingga
+      // TIDAK perlu scan kolom kunci seluruh sheet mirror.
+      var posByKey = {};
+      cached.forEach(function (item) {
+        var raw = String(item[matchHeader] === undefined || item[matchHeader] === null ? '' : item[matchHeader]).trim().replace(/^'/, '');
+        var r = Number(item.Row) || 0;
+        if (raw && r > 0) posByKey[isKode ? raw.replace(/^0+/, '') : raw] = r;
+      });
+      kodeList.forEach(function (kode) {
+        var k = String(kode || '').trim().replace(/^'/, '');
+        if (!k) return;
+        var key = isKode ? k.replace(/^0+/, '') : k;
+        if (posByKey[key] !== undefined) rowValues[posByKey[key]] = setValue;
+      });
+    }
+    if (Object.keys(rowValues).length !== kodeList.length && lastRow > 1) {
+      var ids = sheet.getRange(2, matchCol, lastRow - 1, 1).getValues();
+      var rowByKey = {};
+      for (var i = 0; i < ids.length; i++) {
+        var raw2 = String(ids[i][0] === undefined || ids[i][0] === null ? '' : ids[i][0]).trim().replace(/^'/, '');
+        if (!raw2) continue;
+        rowByKey[isKode ? raw2.replace(/^0+/, '') : raw2] = i + 2;
+      }
+      rowValues = {};
+      kodeList.forEach(function (kode) {
+        var k = String(kode || '').trim().replace(/^'/, '');
+        if (!k) return;
+        var key = isKode ? k.replace(/^0+/, '') : k;
+        if (rowByKey[key] !== undefined) rowValues[rowByKey[key]] = setValue;
+      });
+    }
     setColBatch_(sheet, setCol, rowValues);
     patchMirrorCacheStatus_(kind, table, matchHeader, setHeader, kodeList, setValue);
   } catch (e) {}
@@ -2428,7 +2451,7 @@ function getPiutangKaryawanPage(data) {
   return r;
 }
 
-function catatPiutangKaryawanExt(data) {
+function catatPiutangKaryawanExt(data, internal) {
   data = data || {};
   var conf = getPiutangKaryawanConfig_();
   if (!conf.spreadsheetId) return getErrorObj_('Spreadsheet kredit karyawan belum dikonfigurasi.');
@@ -2447,8 +2470,11 @@ function catatPiutangKaryawanExt(data) {
   var kodeToko = String(u.KodeToko || '').trim();
   if (!kodeToko) return getErrorObj_('KodeToko belum diatur untuk akun ini. Hubungi admin untuk mengisi KodeToko pada sheet Pengguna.');
 
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  var lock = null;
+  if (!internal) {
+    lock = LockService.getScriptLock();
+    lock.waitLock(30000);
+  }
   var notaLengkap = '';
   try {
     var ss = SpreadsheetApp.openById(conf.spreadsheetId);
@@ -2490,7 +2516,7 @@ function catatPiutangKaryawanExt(data) {
   } catch (e) {
     return getErrorObj_('Gagal mencatat kredit karyawan: ' + e.message);
   } finally {
-    lock.releaseLock();
+    if (lock) lock.releaseLock();
   }
 }
 
@@ -2524,7 +2550,10 @@ function nextIdPiutang_(sheet, tgl, prefix) {
   var lastRow = Math.max(sheet.getLastRow(), 1);
   var maxSeq = 0;
   if (colIndex > 0 && lastRow > 1) {
-    var data = sheet.getRange(2, colIndex, lastRow - 1).getValues();
+    // Baris piutang selalu ditambahkan di bawah secara kronologis, jadi
+    // maksimum ID harian pasti ada di ekor sheet — scan 10 ribu baris terakhir.
+    var scanStart = Math.max(2, lastRow - 9998);
+    var data = sheet.getRange(scanStart, colIndex, lastRow - scanStart + 1).getValues();
     var re = new RegExp('^' + prefix + dateKey + '(\\d+)$');
     data.forEach(function (r) {
       var m = String(r[0]).match(re);
@@ -2680,7 +2709,7 @@ function getPiutangAnggotaPage(data) {
   return r;
 }
 
-function catatPiutangAnggotaExt(data) {
+function catatPiutangAnggotaExt(data, internal) {
   data = data || {};
   var conf = getPiutangAnggotaConfig_();
   if (!conf.spreadsheetId) return getErrorObj_('Spreadsheet kredit anggota belum dikonfigurasi.');
@@ -2702,8 +2731,11 @@ function catatPiutangAnggotaExt(data) {
   var kodeToko = String(u.KodeToko || '').trim();
   if (!kodeToko) return getErrorObj_('KodeToko belum diatur untuk akun ini. Hubungi admin untuk mengisi KodeToko pada sheet Pengguna.');
 
-  var lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+  var lock = null;
+  if (!internal) {
+    lock = LockService.getScriptLock();
+    lock.waitLock(30000);
+  }
   var notaLengkap = '';
   try {
     var ss = SpreadsheetApp.openById(conf.spreadsheetId);
@@ -2745,7 +2777,7 @@ function catatPiutangAnggotaExt(data) {
   } catch (e) {
     return getErrorObj_('Gagal mencatat kredit anggota: ' + e.message);
   } finally {
-    lock.releaseLock();
+    if (lock) lock.releaseLock();
   }
 }
 
@@ -3031,6 +3063,8 @@ function previewWaPiutang(data) {
 function warmWaData(data) {
   data = data || {};
   if (!validasiSesi(String(data.token || '').trim())) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
+  readVoucherSheet_(getVoucherConfig_().spreadsheetId, getVoucherConfig_().sheetName, normalizeVoucher_);
+  readVoucherSheet_(getVoucherKaryawanConfig_().spreadsheetId, getVoucherKaryawanConfig_().sheetName, normalizeVoucherKaryawan_);
   readMirrorSheet_('karyawan', 'voucher', normalizeVoucherKaryawan_, 'voucher karyawan');
   readMirrorSheet_('anggota', 'voucher', normalizeVoucher_, 'voucher anggota');
   readPiutangKaryawanExt_();
@@ -3750,7 +3784,7 @@ function redeemVoucher(data) {
             Nominal: pJumlah,
             Nota: String(p.Nota || '').trim(),
             Tanggal: String(tanggal || '').trim()
-          });
+          }, true);
           if (rk.ok) {
             piutangId = rk.ID;
             piutangMsg = ' Kredit ' + rk.ID + ' juga dicatat.';
@@ -3762,7 +3796,7 @@ function redeemVoucher(data) {
             Nominal: pJumlah,
             Nota: String(p.Nota || '').trim(),
             Tanggal: String(tanggal || '').trim()
-          });
+          }, true);
           if (ra.ok) {
             piutangId = ra.ID;
             piutangMsg = ' Kredit ' + ra.ID + ' juga dicatat.';
