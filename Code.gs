@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.12';
+var APP_VERSION = '2.0.13';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -3924,6 +3924,7 @@ function redeemVoucher(data) {
   var _tStart = Date.now();
   var _seg = _tStart;
   var _perf = {};
+  _perf.probeApi = sheetsApiProbe_();
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   _perf.lock = Date.now() - _seg;
