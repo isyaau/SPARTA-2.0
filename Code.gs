@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.18';
+var APP_VERSION = '2.0.19';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -994,7 +994,17 @@ function mirrorAppendRows_(kind, table, headers, valuesList) {
       return idx > -1 ? (values[idx] === undefined || values[idx] === null ? '' : values[idx]) : '';
     });
   });
-  sheet.getRange(startRow, 1, matrix.length, dstHeaders.length).setValues(matrix);
+  var sname = sheet.getName();
+  var localId = localSpreadsheetId_();
+  if (localId && sheetsApiProbe_()) {
+    try {
+      Sheets.Spreadsheets.Values.append({ values: matrix }, localId, sname + '!A1', { valueInputOption: 'USER_ENTERED' });
+    } catch (e) {
+      sheet.getRange(startRow, 1, matrix.length, dstHeaders.length).setValues(matrix);
+    }
+  } else {
+    sheet.getRange(startRow, 1, matrix.length, dstHeaders.length).setValues(matrix);
+  }
   var out = [];
   for (var i = 0; i < matrix.length; i++) {
     var obj = { Row: startRow + i };
@@ -1158,38 +1168,48 @@ function getExtFormattedColumn_(spreadsheetId, sheetName, colNum, startRow) {
   return out;
 }
 
-function buatNotaTokoExt_(spreadsheetId, sheetName, kodeToko, dayKey, nota4) {
-  if (nota4) return String(kodeToko) + dayKey + pad_(cleanNum_(nota4), 4);
-  var urut = 0;
-  try {
-    var headers = getSheetHeadersExt_(spreadsheetId, sheetName);
-    var colIndex = headers.indexOf('Nota Toko') + 1;
-    var data = colIndex > 0 ? getExtColumnValues_(spreadsheetId, sheetName, colIndex, 2) : [];
-    var re = new RegExp('^' + String(kodeToko) + dayKey + '(\\d{4})$');
-    data.forEach(function (v) {
-      var m = String(v).match(re);
-      if (m) { var n = parseInt(m[1], 10); if (n > urut) urut = n; }
-    });
-  } catch (e) {}
-  return String(kodeToko) + dayKey + pad_(urut + 1, 4);
-}
-
-function nextIdPiutangExt_(spreadsheetId, sheetName, tgl, prefix) {
+/** Hitung Nota Toko + ID System piutang dalam SATU pembacaan rentang (2 kolom).
+ *  Menggantikan buatNotaTokoExt_ + nextIdPiutangExt_ yang masing-masing
+ *  membaca header + satu kolom (3 RPC serial). */
+function catatIdPiutangExt_(spreadsheetId, sheetName, kodeToko, dayKey, nota4, tgl, prefix) {
+  var nota = nota4 ? String(kodeToko) + dayKey + pad_(cleanNum_(nota4), 4) : '';
   var dateKey = Utilities.formatDate(tgl, getTimeZone_(), 'yyMMdd');
+  var urut = 0;
   var maxSeq = 0;
   try {
     var headers = getSheetHeadersExt_(spreadsheetId, sheetName);
-    var colIndex = headers.indexOf('ID System') + 1;
-    if (colIndex > 0) {
-      var data = getExtColumnValues_(spreadsheetId, sheetName, colIndex, 2);
-      var re = new RegExp('^' + prefix + dateKey + '(\\d+)$');
-      data.forEach(function (v) {
-        var m = String(v).match(re);
-        if (m) { var n = parseInt(m[1], 10); if (n > maxSeq) maxSeq = n; }
-      });
-    }
-  } catch (e) {}
-  return prefix + dateKey + pad_(maxSeq + 1, 4);
+      var cN = headers.indexOf('Nota Toko') + 1;
+      var cI = headers.indexOf('ID System') + 1;
+      if (cN > 0 || cI > 0) {
+        var minCol = Math.min(cN || cI, cI || cN);
+        var maxCol = Math.max(cN || cI, cI || cN);
+        var resp = sheetsApiFetch_(spreadsheetId, '/values/' + encodeURIComponent(sheetRefA1_(sheetName) + '!' + colLetter_(minCol) + '2:' + colLetter_(maxCol)));
+        var vals = (resp && resp.values) || [];
+        var reN = cN > 0 ? new RegExp('^' + String(kodeToko) + dayKey + '(\\d{4})$') : null;
+        var reI = cI > 0 ? new RegExp('^' + prefix + dateKey + '(\\d+)$') : null;
+        vals.forEach(function (row) {
+          if (reN && cN >= minCol && row[cN - minCol] !== undefined && row[cN - minCol] !== null) {
+            var m = String(row[cN - minCol]).match(reN);
+            if (m) { var n = parseInt(m[1], 10); if (n > urut) urut = n; }
+          }
+          if (reI && cI >= minCol && row[cI - minCol] !== undefined && row[cI - minCol] !== null) {
+            var m2 = String(row[cI - minCol]).match(reI);
+            if (m2) { var n2 = parseInt(m2[1], 10); if (n2 > maxSeq) maxSeq = n2; }
+          }
+        });
+      }
+    } catch (e) {}
+  if (!nota) nota = String(kodeToko) + dayKey + pad_(urut + 1, 4);
+  var idSystem = prefix + dateKey + pad_(maxSeq + 1, 4);
+  return { notaLengkap: nota, idSystem: idSystem };
+}
+
+/** ID spreadsheet lokal (workbook main SPARTA yang terikat script). */
+var _localSsId_ = null;
+function localSpreadsheetId_() {
+  if (_localSsId_) return _localSsId_;
+  try { _localSsId_ = SpreadsheetApp.getActiveSpreadsheet().getId(); } catch (e) { _localSsId_ = ''; }
+  return _localSsId_;
 }
 
 /** ------------------------------------------------------------------ */
@@ -1275,12 +1295,28 @@ function mirrorSetCellsBulk_(kind, table, matchHeader, setHeader, kodeList, setV
         if (rowByKey[key] !== undefined) rowValues[rowByKey[key]] = setValue;
       });
     }
-    setColBatch_(sheet, setCol, rowValues);
+    var sname = sheet.getName();
+    var localId = localSpreadsheetId_();
+    if (localId && sheetsApiProbe_()) {
+      var dataB = [];
+      Object.keys(rowValues).forEach(function (r2) {
+        var v2 = rowValues[r2];
+        if (v2 === undefined || v2 === null) return;
+        dataB.push({ range: sname + '!' + colLetter_(setCol) + Number(r2), values: [[v2]] });
+      });
+      if (dataB.length) {
+        try {
+          Sheets.Spreadsheets.Values.batchUpdate({ valueInputOption: 'USER_ENTERED', data: dataB }, localId);
+        } catch (e) {
+          setColBatch_(sheet, setCol, rowValues);
+        }
+      }
+    } else {
+      setColBatch_(sheet, setCol, rowValues);
+    }
     patchMirrorCacheStatus_(kind, table, matchHeader, setHeader, kodeList, setValue);
   } catch (e) {}
 }
-
-/** Patch status pada cache mirror list agar konsisten dengan sheet (tanpa baca ulang sheet). */
 function patchMirrorCacheStatus_(kind, table, matchHeader, setHeader, kodeList, setValue) {
   patchCacheList_(mirrorCacheKey_(kind, table), 300, function (list) {
     var set = {};
@@ -2728,8 +2764,15 @@ function catatPiutangKaryawanExt(data, internal) {
       _shC = SpreadsheetApp.openById(conf.spreadsheetId).getSheetByName(conf.sheetName) || SpreadsheetApp.openById(conf.spreadsheetId).getSheets()[0];
       perf_('catatK2 openById', _tK0);
     }
-    notaLengkap = useApi ? buatNotaTokoExt_(conf.spreadsheetId, conf.sheetName, kodeToko, yy + mmdd, nota4) : buatNotaToko_(_shC, kodeToko, yy + mmdd, nota4);
-    var idSystem = useApi ? nextIdPiutangExt_(conf.spreadsheetId, conf.sheetName, tglNota, 'PIU') : nextIdPiutang_(_shC, tglNota, 'PIU');
+    var idSystem;
+    if (useApi) {
+      var idg = catatIdPiutangExt_(conf.spreadsheetId, conf.sheetName, kodeToko, yy + mmdd, nota4, tglNota, 'PIU');
+      notaLengkap = idg.notaLengkap;
+      idSystem = idg.idSystem;
+    } else {
+      notaLengkap = buatNotaToko_(_shC, kodeToko, yy + mmdd, nota4);
+      idSystem = nextIdPiutang_(_shC, tglNota, 'PIU');
+    }
     perf_('catatK3 buatNota+nextId', _tK0);
 
     var row = {};
@@ -2996,8 +3039,15 @@ function catatPiutangAnggotaExt(data, internal) {
       _shC = SpreadsheetApp.openById(conf.spreadsheetId).getSheetByName(conf.sheetName) || SpreadsheetApp.openById(conf.spreadsheetId).getSheets()[0];
       perf_('catatA2 openById', _tA0);
     }
-    notaLengkap = useApi ? buatNotaTokoExt_(conf.spreadsheetId, conf.sheetName, kodeToko, yy + mmdd, nota4) : buatNotaToko_(_shC, kodeToko, yy + mmdd, nota4);
-    var idSystem = useApi ? nextIdPiutangExt_(conf.spreadsheetId, conf.sheetName, tglNota, 'PIU') : nextIdPiutang_(_shC, tglNota, 'PIU');
+    var idSystem;
+    if (useApi) {
+      var idg = catatIdPiutangExt_(conf.spreadsheetId, conf.sheetName, kodeToko, yy + mmdd, nota4, tglNota, 'PIU');
+      notaLengkap = idg.notaLengkap;
+      idSystem = idg.idSystem;
+    } else {
+      notaLengkap = buatNotaToko_(_shC, kodeToko, yy + mmdd, nota4);
+      idSystem = nextIdPiutang_(_shC, tglNota, 'PIU');
+    }
     perf_('catatA3 buatNota+nextId', _tA0);
 
     var row = {};
