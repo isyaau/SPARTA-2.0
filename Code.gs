@@ -1,4 +1,4 @@
-﻿/**
+/**
  * SPARTA KOPINKA
  * Sistem Pencatatan & Redeem Piutang Anggota KOPINKA
  * Backend utama Google Apps Script.
@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.17';
+var APP_VERSION = '2.0.18';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -2617,7 +2617,7 @@ function clearPiutangKaryawanCache_() {
 /** Patch cache mirror piutang (tambah baris kredit baru yang baru dicatat). */
 function patchPiutangCacheAppend_(kind, rawRow) {
   var norm = kind === 'karyawan' ? normalizePiutangKaryawan_ : normalizePiutangAnggota_;
-  patchCacheList_(mirrorCacheKey_(kind, 'piutang'), 3600, function (list) {
+  patchCacheList_(mirrorCacheKey_(kind, 'piutang'), 43200, function (list) {
     var n = norm(rawRow);
     if (n) list.unshift(n);
   });
@@ -2625,7 +2625,7 @@ function patchPiutangCacheAppend_(kind, rawRow) {
 
 /** Patch cache mirror piutang: isi kolom Verifikasi untuk ID yang bersangkutan. */
 function patchPiutangVerifikasiCache_(kind, idSystem, link) {
-  patchCacheList_(mirrorCacheKey_(kind, 'piutang'), 3600, function (list) {
+  patchCacheList_(mirrorCacheKey_(kind, 'piutang'), 43200, function (list) {
     list.forEach(function (p) {
       if (String(p.IDSystem || '').trim() === String(idSystem || '').trim()) p.Verifikasi = link;
     });
@@ -3105,7 +3105,7 @@ function setStatusNotif_(kind, idSystem) {
   var snCol = headers.indexOf('Status Notif') + 1;
   if (snCol >= 1) sheet.getRange(rowIndex, snCol).setValue('Terkirim');
   mirrorSetCell_(kind, 'piutang', 'ID System', idSystem, 'Status Notif', 'Terkirim');
-  patchCacheList_(mirrorCacheKey_(kind, 'piutang'), 3600, function (list) {
+  patchCacheList_(mirrorCacheKey_(kind, 'piutang'), 43200, function (list) {
     list.forEach(function (p) {
       if (String(p.IDSystem || '').trim() === String(idSystem || '').trim()) p.StatusNotif = 'Terkirim';
     });
@@ -3793,7 +3793,7 @@ function appendMutasiRedeemBulk_(kind, u, items, tanggal, nota, piutangId) {
 
     var mirrorRows = mirrorAppendRows_(kind, 'mutasi', headers, rows);
     if (mirrorRows.length) {
-      patchCacheList_(mirrorCacheKey_(kind, 'mutasi'), 3600, function (list) {
+      patchCacheList_(mirrorCacheKey_(kind, 'mutasi'), 43200, function (list) {
         mirrorRows.forEach(function (rawRow) {
           var n = norm(rawRow);
           if (n) list.push(n);
