@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.11';
+var APP_VERSION = '2.0.12';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -652,27 +652,42 @@ function readVoucherSheet_(spreadsheetId, sheetName, normalizeFn) {
     try { return { ok: true, message: 'Data voucher dimuat (cache) dari ' + sheetName + '.', list: hit }; } catch (e) {}
   }
   try {
-    var ss = SpreadsheetApp.openById(spreadsheetId);
-    var sheet = ss.getSheetByName(sheetName) || ss.getSheets()[0];
-    if (!sheet) {
-      return { ok: false, message: 'Sheet "' + sheetName + '" tidak ditemukan pada spreadsheet voucher.', list: [] };
+    var useApiRead = sheetsApiProbe_();
+    var headers;
+    var rows;
+    if (useApiRead) {
+      var full = sheetsApiFetch_(spreadsheetId, '/values/' + encodeURIComponent(sheetRefA1_(sheetName)) + '?valueRenderOption=UNFORMATTED_VALUE');
+      var m = (full && full.values) || [];
+      if (!m.length || !m[0].length) return { ok: true, message: 'Sheet voucher kosong.', list: [] };
+      headers = m[0].map(function (h) { return String(h).trim(); });
+      rows = m.slice(1);
+      headers.forEach(function (h, c) { if (isKodeTextCol_(h)) {
+        var disp = getExtFormattedColumn_(spreadsheetId, sheetName, c + 1);
+        rows.forEach(function (row, r) {
+          if (disp[r] !== undefined && disp[r] !== null) row[c] = disp[r];
+        });
+      } });
+    } else {
+      var ss = SpreadsheetApp.openById(spreadsheetId);
+      var sheet = ss.getSheetByName(sheetName) || ss.getSheets()[0];
+      if (!sheet) {
+        return { ok: false, message: 'Sheet "' + sheetName + '" tidak ditemukan pada spreadsheet voucher.', list: [] };
+      }
+      var lastRow = sheet.getLastRow();
+      if (lastRow < 2) return { ok: true, message: 'Sheet voucher kosong.', list: [] };
+      headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
+        .map(function (h) { return String(h).trim(); });
+      rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+      // Baca nilai tampilan (getDisplayValues) HANYA untuk kolom kode (nol di
+      // depan perlu dipertahankan). Menghindari render display seluruh kolom
+      // sheet yang besar — penyebab lambat 30-50 detik saat cache dingin.
+      headers.forEach(function (h, c) { if (isKodeTextCol_(h)) {
+        var disp = sheet.getRange(2, c + 1, lastRow - 1, 1).getDisplayValues();
+        rows.forEach(function (row, r) {
+          if (disp[r] && disp[r][0] !== undefined && disp[r][0] !== null) row[c] = disp[r][0];
+        });
+      } });
     }
-    var lastRow = sheet.getLastRow();
-    if (lastRow < 2) return { ok: true, message: 'Sheet voucher kosong.', list: [] };
-    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
-      .map(function (h) { return String(h).trim(); });
-    var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
-    // Baca nilai tampilan (getDisplayValues) HANYA untuk kolom kode (nol di
-    // depan perlu dipertahankan). Menghindari render display sseluruh kolom
-    // sheet yang besar — penyebab lambat 30-50 detik saat cache dingin.
-    var kodeIdx = [];
-    (headers || []).forEach(function (h, i) { if (isKodeTextCol_(h)) kodeIdx.push(i); });
-    kodeIdx.forEach(function (c) {
-      var disp = sheet.getRange(2, c + 1, lastRow - 1, 1).getDisplayValues();
-      rows.forEach(function (row, r) {
-        if (disp[r] && disp[r][0] !== undefined && disp[r][0] !== null) row[c] = disp[r][0];
-      });
-    });
     var list = [];
     rows.forEach(function (row, i) {
       var obj = { Row: i + 2 };
@@ -1087,6 +1102,17 @@ function headersFromOpen_(spreadsheetId, sheetName) {
   var sh = ss.getSheetByName(sheetName) || ss.getSheets()[0];
   if (!sh || sh.getLastColumn() < 1) return [];
   return sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); });
+}
+
+/** Baca satu kolom dengan nilai tampilan (display) via Sheets API. */
+function getExtFormattedColumn_(spreadsheetId, sheetName, colNum, startRow) {
+  var r = startRow || 2;
+  var letter = colLetter_(colNum);
+  var resp = sheetsApiFetch_(spreadsheetId, '/values/' + encodeURIComponent(sheetRefA1_(sheetName) + '!' + letter + r + ':' + letter) + '?valueRenderOption=FORMATTED_VALUE');
+  var vals = (resp && resp.values) || [];
+  var out = [];
+  vals.forEach(function (row) { out.push(row[0] == null ? '' : row[0]); });
+  return out;
 }
 
 function buatNotaTokoExt_(spreadsheetId, sheetName, kodeToko, dayKey, nota4) {
