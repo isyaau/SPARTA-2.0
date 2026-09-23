@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.9';
+var APP_VERSION = '2.0.10';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -1063,6 +1063,30 @@ function sheetsApiFetch_(spreadsheetId, path, payload, method) {
   var body = resp.getContentText();
   if (code < 200 || code >= 300) throw new Error('Sheets API ' + code + ': ' + String(body).slice(0, 300));
   return body ? JSON.parse(body) : {};
+}
+
+/** Deteksi izin Sheets REST API (script.external_request) sekali per eksekusi.
+ *  Bila izin belum ada, jalur SpreadsheetApp dipakai sebagai pengganti otomatis. */
+var _sheetsApiOk_ = null;
+function sheetsApiProbe_() {
+  if (_sheetsApiOk_ !== null) return _sheetsApiOk_;
+  var v = getVoucherConfig_();
+  _sheetsApiOk_ = false;
+  if (v.spreadsheetId) {
+    try {
+      sheetsApiFetch_(v.spreadsheetId, '/values/' + encodeURIComponent(sheetRefA1_(v.sheetName || 'Voucher') + '!1:1'));
+      _sheetsApiOk_ = true;
+    } catch (e) {}
+  }
+  return _sheetsApiOk_;
+}
+
+/** Baca baris header via SpreadsheetApp (fallback bila izin API belum ada). */
+function headersFromOpen_(spreadsheetId, sheetName) {
+  var ss = SpreadsheetApp.openById(spreadsheetId);
+  var sh = ss.getSheetByName(sheetName) || ss.getSheets()[0];
+  if (!sh || sh.getLastColumn() < 1) return [];
+  return sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); });
 }
 
 function buatNotaTokoExt_(spreadsheetId, sheetName, kodeToko, dayKey, nota4) {
@@ -2629,8 +2653,14 @@ function catatPiutangKaryawanExt(data, internal) {
     var yy = Utilities.formatDate(tglNota, getTimeZone_(), 'yy');
     var mmdd = Utilities.formatDate(tglNota, getTimeZone_(), 'MMdd');
 
-    notaLengkap = buatNotaTokoExt_(conf.spreadsheetId, conf.sheetName, kodeToko, yy + mmdd, nota4);
-    var idSystem = nextIdPiutangExt_(conf.spreadsheetId, conf.sheetName, tglNota, 'PIU');
+    var useApi = sheetsApiProbe_();
+    var _shC = null;
+    if (!useApi) {
+      _shC = SpreadsheetApp.openById(conf.spreadsheetId).getSheetByName(conf.sheetName) || SpreadsheetApp.openById(conf.spreadsheetId).getSheets()[0];
+      perf_('catatK2 openById', _tK0);
+    }
+    notaLengkap = useApi ? buatNotaTokoExt_(conf.spreadsheetId, conf.sheetName, kodeToko, yy + mmdd, nota4) : buatNotaToko_(_shC, kodeToko, yy + mmdd, nota4);
+    var idSystem = useApi ? nextIdPiutangExt_(conf.spreadsheetId, conf.sheetName, tglNota, 'PIU') : nextIdPiutang_(_shC, tglNota, 'PIU');
     perf_('catatK3 buatNota+nextId', _tK0);
 
     var row = {};
@@ -2645,7 +2675,8 @@ function catatPiutangKaryawanExt(data, internal) {
       else row[h] = '';
     });
     var valuesK = KOLOM_PIUTANG_KARYAWAN_EXT.map(function (h) { return row[h] === undefined ? '' : row[h]; });
-    appendRowsExt_(conf.spreadsheetId, conf.sheetName, [valuesK]);
+    if (useApi) appendRowsExt_(conf.spreadsheetId, conf.sheetName, [valuesK]);
+    else _shC.appendRow(valuesK);
     var mirK = mirrorAppendRows_('karyawan', 'piutang', KOLOM_PIUTANG_KARYAWAN_EXT, [valuesK]);
     if (mirK.length) patchPiutangCacheAppend_('karyawan', mirK[0]);
     perf_('catatK4 append+mirror+patch', _tK0);
@@ -2890,8 +2921,14 @@ function catatPiutangAnggotaExt(data, internal) {
     var yy = Utilities.formatDate(tglNota, getTimeZone_(), 'yy');
     var mmdd = Utilities.formatDate(tglNota, getTimeZone_(), 'MMdd');
 
-    notaLengkap = buatNotaTokoExt_(conf.spreadsheetId, conf.sheetName, kodeToko, yy + mmdd, nota4);
-    var idSystem = nextIdPiutangExt_(conf.spreadsheetId, conf.sheetName, tglNota, 'PIU');
+    var useApi = sheetsApiProbe_();
+    var _shC = null;
+    if (!useApi) {
+      _shC = SpreadsheetApp.openById(conf.spreadsheetId).getSheetByName(conf.sheetName) || SpreadsheetApp.openById(conf.spreadsheetId).getSheets()[0];
+      perf_('catatA2 openById', _tA0);
+    }
+    notaLengkap = useApi ? buatNotaTokoExt_(conf.spreadsheetId, conf.sheetName, kodeToko, yy + mmdd, nota4) : buatNotaToko_(_shC, kodeToko, yy + mmdd, nota4);
+    var idSystem = useApi ? nextIdPiutangExt_(conf.spreadsheetId, conf.sheetName, tglNota, 'PIU') : nextIdPiutang_(_shC, tglNota, 'PIU');
     perf_('catatA3 buatNota+nextId', _tA0);
 
     var row = {};
@@ -2906,7 +2943,8 @@ function catatPiutangAnggotaExt(data, internal) {
       else row[h] = '';
     });
     var valuesA = KOLOM_PIUTANG_ANGGOTA_EXT.map(function (h) { return row[h] === undefined ? '' : row[h]; });
-    appendRowsExt_(conf.spreadsheetId, conf.sheetName, [valuesA]);
+    if (useApi) appendRowsExt_(conf.spreadsheetId, conf.sheetName, [valuesA]);
+    else _shC.appendRow(valuesA);
     var mirA = mirrorAppendRows_('anggota', 'piutang', KOLOM_PIUTANG_ANGGOTA_EXT, [valuesA]);
     if (mirA.length) patchPiutangCacheAppend_('anggota', mirA[0]);
     perf_('catatA4 append+mirror+patch', _tA0);
@@ -3628,7 +3666,8 @@ function appendMutasiRedeemBulk_(kind, u, items, tanggal, nota, piutangId) {
   var conf = getMutasiConfig_(kind);
   if (!conf.spreadsheetId) return { ok: true, message: 'Spreadsheet mutasi belum dikonfigurasi (dilewati).', count: 0 };
   try {
-    var headers = getSheetHeadersExt_(conf.spreadsheetId, conf.sheetName);
+    var useApi = sheetsApiProbe_();
+    var headers = useApi ? getSheetHeadersExt_(conf.spreadsheetId, conf.sheetName) : headersFromOpen_(conf.spreadsheetId, conf.sheetName);
     if (!headers.length) return getErrorObj_('Sheet mutasi masih kosong. Isi baris header terlebih dahulu.');
 
     var waktu = Utilities.formatDate(new Date(), getTimeZone_(), 'yyyy-MM-dd HH:mm:ss');
@@ -3675,7 +3714,13 @@ function appendMutasiRedeemBulk_(kind, u, items, tanggal, nota, piutangId) {
       return row;
     });
 
-    appendRowsExt_(conf.spreadsheetId, conf.sheetName, rows);
+    if (useApi) {
+      appendRowsExt_(conf.spreadsheetId, conf.sheetName, rows);
+    } else {
+      var _shM = SpreadsheetApp.openById(conf.spreadsheetId).getSheetByName(conf.sheetName) || SpreadsheetApp.openById(conf.spreadsheetId).getSheets()[0];
+      var _srM = Math.max(_shM.getLastRow(), 1);
+      _shM.getRange(_srM + 1, 1, rows.length, headers.length).setValues(rows);
+    }
 
     var mirrorRows = mirrorAppendRows_(kind, 'mutasi', headers, rows);
     if (mirrorRows.length) {
@@ -3873,7 +3918,9 @@ function redeemVoucher(data) {
     var kodes = (data.kode || []).map(function (k) { return String(k).trim(); }).filter(Boolean);
     if (!kodes.length) return getErrorObj_('Pilih minimal satu voucher untuk diredeem.');
 
-    var svHeaders = getSheetHeadersExt_(conf.spreadsheetId, conf.sheetName);
+    var svHeaders = sheetsApiProbe_()
+      ? getSheetHeadersExt_(conf.spreadsheetId, conf.sheetName)
+      : headersFromOpen_(conf.spreadsheetId, conf.sheetName);
     var statusCol = svHeaders.indexOf('Status') + 1;
     if (statusCol < 1) return getErrorObj_('Kolom Status tidak ditemukan pada sheet voucher.');
 
@@ -3914,7 +3961,12 @@ function redeemVoucher(data) {
     _seg = Date.now();
 
     // Perbarui status voucher eksternal & mirror SPARTA secara batch (1-2 setValues).
-    setStatusExtBatch_(conf.spreadsheetId, conf.sheetName, statusCol, extRowValues);
+    if (sheetsApiProbe_()) {
+      setStatusExtBatch_(conf.spreadsheetId, conf.sheetName, statusCol, extRowValues);
+    } else {
+      var _shV = SpreadsheetApp.openById(conf.spreadsheetId).getSheetByName(conf.sheetName) || SpreadsheetApp.openById(conf.spreadsheetId).getSheets()[0];
+      setColBatch_(_shV, statusCol, extRowValues);
+    }
     mirrorSetCellsBulk_(kind, 'voucher', 'Kode', 'Status', redeemedKodes, 'Used');
     _perf.statusWrite = Date.now() - _seg;
     perf_('redeem3 statusWrite', _seg);
