@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.3';
+var APP_VERSION = '2.0.4';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -481,6 +481,12 @@ var CACHE_DEF = {
 
 var MEM_CACHE_ = {};
 
+/** Catat waktu operasi (Logger) bila >= 100 ms — untuk diagnostik performa. */
+function perf_(label, t0) {
+  var ms = Date.now() - t0;
+  if (ms >= 100) Logger.log('PERF [' + label + '] ' + ms + 'ms');
+}
+
 function getCacheRows_(def, fetchFn) {
   if (Object.prototype.hasOwnProperty.call(MEM_CACHE_, def.key)) return MEM_CACHE_[def.key];
   var hit = cacheGetBig_(def.key);
@@ -517,6 +523,7 @@ function getTrxCache_() { return getCacheRows_(CACHE_DEF.TRX, getRedeemList); }
 var CACHE_CHUNK_MAX = 50000;
 
 function cachePutBig_(key, obj, ttl) {
+  var _t0 = Date.now();
   try {
     var cache = CacheService.getScriptCache();
     var j = JSON.stringify(obj);
@@ -524,6 +531,7 @@ function cachePutBig_(key, obj, ttl) {
     if (j.length <= CACHE_CHUNK_MAX) {
       cache.put(key, j, ttl || 900);
       cache.remove(key + '#1');
+      perf_('cachePut ' + key + ' (1)', _t0);
       return;
     }
     var old = cache.get(key);
@@ -536,10 +544,12 @@ function cachePutBig_(key, obj, ttl) {
       cache.put(key + '#' + i, j.substr((i - 1) * CACHE_CHUNK_MAX, CACHE_CHUNK_MAX), ttl || 900);
     }
     cache.put(key, '#c' + chunks, ttl || 900);
+    perf_('cachePut ' + key + ' (n=' + chunks + ')', _t0);
   } catch (e) {}
 }
 
 function cacheGetBig_(key) {
+  var _t0 = Date.now();
   var cache = CacheService.getScriptCache();
   var v = null;
   try { v = cache.get(key); } catch (e) {}
@@ -554,7 +564,11 @@ function cacheGetBig_(key) {
     }
     v = parts.join('');
   }
-  try { return JSON.parse(v); } catch (e) { return null; }
+  try {
+    var r = JSON.parse(v);
+    perf_('cacheGet ' + key, _t0);
+    return r;
+  } catch (e) { return null; }
 }
 
 function cacheRemoveBig_(key) {
@@ -2452,6 +2466,7 @@ function getPiutangKaryawanPage(data) {
 }
 
 function catatPiutangKaryawanExt(data, internal) {
+  var _tK0 = Date.now();
   data = data || {};
   var conf = getPiutangKaryawanConfig_();
   if (!conf.spreadsheetId) return getErrorObj_('Spreadsheet kredit karyawan belum dikonfigurasi.');
@@ -2469,6 +2484,7 @@ function catatPiutangKaryawanExt(data, internal) {
   if (!/^\d{4}$/.test(nota4)) return getErrorObj_('4 digit akhir nota wajib diisi (4 digit angka).');
   var kodeToko = String(u.KodeToko || '').trim();
   if (!kodeToko) return getErrorObj_('KodeToko belum diatur untuk akun ini. Hubungi admin untuk mengisi KodeToko pada sheet Pengguna.');
+  perf_('catatK1 validasiSesi+cek', _tK0);
 
   var lock = null;
   if (!internal) {
@@ -2480,6 +2496,7 @@ function catatPiutangKaryawanExt(data, internal) {
     var ss = SpreadsheetApp.openById(conf.spreadsheetId);
     var sheet = ss.getSheetByName(conf.sheetName) || ss.getSheets()[0];
     if (!sheet) return getErrorObj_('Sheet "' + conf.sheetName + '" tidak ditemukan pada spreadsheet kredit karyawan.');
+    perf_('catatK2 openById', _tK0);
 
     var now = new Date();
     var waktu = Utilities.formatDate(now, getTimeZone_(), 'yyyy-MM-dd HH:mm:ss');
@@ -2496,6 +2513,7 @@ function catatPiutangKaryawanExt(data, internal) {
 
     notaLengkap = buatNotaToko_(sheet, kodeToko, yy + mmdd, nota4);
     var idSystem = nextIdPiutang_(sheet, tglNota, 'PIU');
+    perf_('catatK3 buatNota+nextId', _tK0);
 
     var row = {};
     KOLOM_PIUTANG_KARYAWAN_EXT.forEach(function (h) {
@@ -2512,6 +2530,7 @@ function catatPiutangKaryawanExt(data, internal) {
     sheet.appendRow(valuesK);
     var mirK = mirrorAppendRows_('karyawan', 'piutang', KOLOM_PIUTANG_KARYAWAN_EXT, [valuesK]);
     if (mirK.length) patchPiutangCacheAppend_('karyawan', mirK[0]);
+    perf_('catatK4 append+mirror+patch', _tK0);
     return { ok: true, message: 'Kredit karyawan ' + idSystem + ' tercatat. Nota: ' + notaLengkap, ID: idSystem };
   } catch (e) {
     return getErrorObj_('Gagal mencatat kredit karyawan: ' + e.message);
@@ -2710,6 +2729,7 @@ function getPiutangAnggotaPage(data) {
 }
 
 function catatPiutangAnggotaExt(data, internal) {
+  var _tA0 = Date.now();
   data = data || {};
   var conf = getPiutangAnggotaConfig_();
   if (!conf.spreadsheetId) return getErrorObj_('Spreadsheet kredit anggota belum dikonfigurasi.');
@@ -2730,6 +2750,7 @@ function catatPiutangAnggotaExt(data, internal) {
   if (!/^\d{4}$/.test(nota4)) return getErrorObj_('4 digit akhir nota wajib diisi (4 digit angka).');
   var kodeToko = String(u.KodeToko || '').trim();
   if (!kodeToko) return getErrorObj_('KodeToko belum diatur untuk akun ini. Hubungi admin untuk mengisi KodeToko pada sheet Pengguna.');
+  perf_('catatA1 validasiSesi+cek', _tA0);
 
   var lock = null;
   if (!internal) {
@@ -2741,6 +2762,7 @@ function catatPiutangAnggotaExt(data, internal) {
     var ss = SpreadsheetApp.openById(conf.spreadsheetId);
     var sheet = ss.getSheetByName(conf.sheetName) || ss.getSheets()[0];
     if (!sheet) return getErrorObj_('Sheet "' + conf.sheetName + '" tidak ditemukan pada spreadsheet kredit anggota.');
+    perf_('catatA2 openById', _tA0);
 
     var now = new Date();
     var waktu = Utilities.formatDate(now, getTimeZone_(), 'yyyy-MM-dd HH:mm:ss');
@@ -2757,6 +2779,7 @@ function catatPiutangAnggotaExt(data, internal) {
 
     notaLengkap = buatNotaToko_(sheet, kodeToko, yy + mmdd, nota4);
     var idSystem = nextIdPiutang_(sheet, tglNota, 'PIU');
+    perf_('catatA3 buatNota+nextId', _tA0);
 
     var row = {};
     KOLOM_PIUTANG_ANGGOTA_EXT.forEach(function (h) {
@@ -2773,6 +2796,7 @@ function catatPiutangAnggotaExt(data, internal) {
     sheet.appendRow(valuesA);
     var mirA = mirrorAppendRows_('anggota', 'piutang', KOLOM_PIUTANG_ANGGOTA_EXT, [valuesA]);
     if (mirA.length) patchPiutangCacheAppend_('anggota', mirA[0]);
+    perf_('catatA4 append+mirror+patch', _tA0);
     return { ok: true, message: 'Kredit anggota ' + idSystem + ' tercatat. Nota: ' + notaLengkap, ID: idSystem };
   } catch (e) {
     return getErrorObj_('Gagal mencatat kredit anggota: ' + e.message);
@@ -3697,8 +3721,12 @@ function catatPiutang(data) {
 
 function redeemVoucher(data) {
   data = data || {};
+  var _tStart = Date.now();
+  var _seg = _tStart;
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
+  perf_('redeem0 lockWait', _seg);
+  _seg = Date.now();
   try {
     var u = validasiSesi(String(data.token || '').trim());
     if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
@@ -3706,6 +3734,8 @@ function redeemVoucher(data) {
     var conf = isKaryawan ? getVoucherKaryawanConfig_() : getVoucherConfig_();
     var norm = isKaryawan ? normalizeVoucherKaryawan_ : normalizeVoucher_;
     var res = readVoucherSheet_(conf.spreadsheetId, conf.sheetName, norm);
+    perf_('redeem1 validasiSesi+readVoucherSheet', _seg);
+    _seg = Date.now();
     if (!res.ok) return { ok: false, message: res.message };
 
     var kodes = (data.kode || []).map(function (k) { return String(k).trim(); }).filter(Boolean);
@@ -3751,10 +3781,14 @@ function redeemVoucher(data) {
       redeemed.push({ v: v, kode: kode, no: no });
     });
     if (!redeemed.length) return getErrorObj_('Tidak ada voucher Active yang bisa diredeem.' + (skipped.length ? ' Diblokir: ' + skipped.join(', ') : ''));
+    perf_('redeem2 cekPemegang+nota', _seg);
+    _seg = Date.now();
 
     // Perbarui status voucher eksternal & mirror SPARTA secara batch (1-2 setValues).
     setColBatch_(sheetV, statusCol, extRowValues);
     mirrorSetCellsBulk_(kind, 'voucher', 'Kode', 'Status', redeemedKodes, 'Used');
+    perf_('redeem3 statusWrite', _seg);
+    _seg = Date.now();
 
     // ID mutasi dihitung sekali lalu dinaikkan berurutan (hindari N kali scan sheet mutasi).
     var idTrxList = [];
@@ -3768,7 +3802,8 @@ function redeemVoucher(data) {
       item.idTrx = idTrx;
       idTrxList.push(idTrx);
     });
-
+    perf_('redeem4 idGen', _seg);
+    _seg = Date.now();
     var piutangMsg = '';
     var piutangId = '';
     var piutangNominal = 0;
@@ -3805,9 +3840,13 @@ function redeemVoucher(data) {
       }
     }
 
+    perf_('redeem5 catat', _seg);
+    _seg = Date.now();
     var mutasiMsg = '';
     var mRes = appendMutasiRedeemBulk_(kind, u, redeemed, tanggal, notaLengkap, piutangId);
     if (!mRes.ok) mutasiMsg = ' Mutasi gagal: ' + mRes.message + '.';
+    perf_('redeem6 appendMutasi', _seg);
+    _seg = Date.now();
 
     var items = redeemed.map(function (item) {
       return { Kode: item.kode, Label: String(item.v.Label || ''), Nilai: cleanNum_(item.v.Nilai) };
@@ -3866,6 +3905,8 @@ function redeemVoucher(data) {
       cacheRemoveBig_(CACHE_DEF.TRX.key);
       cacheRemoveBig_('vstats_' + VOUCHER_SPREADSHEET_ID);
     } catch (e) {}
+    perf_('redeem7 patchCache+remove', _seg);
+    perf_('redeem TOTAL', _tStart);
     return {
       ok: true,
       message: redeemed.length + ' voucher diredeem.' + (skipped.length ? ' Dilewati (bukan Active): ' + skipped.join(', ') + '.' : '') + piutangMsg + mutasiMsg,
@@ -4581,4 +4622,54 @@ function pasangFotoUser(token, fileId) {
   } catch (e) {
     return getErrorObj_('Gagal menyimpan foto: ' + e.message);
   }
+}
+
+/** DIAGNOSTIK PERFORMA: ukuran sheet/cache + waktu baca. Jalankan di editor Apps Script lalu kirim hasilnya. */
+function diagnostik() {
+  var lines = ['=== DIAGNOSTIK SPARTA v' + APP_VERSION + ' ==='];
+  var t0 = Date.now();
+  function idc(label, ssId, sheetName) {
+    var id = String(ssId || '').trim();
+    if (!id) { lines.push(label + ': TIDAK DIKONFIGURASI'); return; }
+    try {
+      var ss = SpreadsheetApp.openById(id);
+      var sh = ss.getSheetByName(sheetName) || ss.getSheets()[0];
+      lines.push(label + ': sheet=' + sh.getName() + ' lastRow=' + sh.getLastRow() + ' lastCol=' + sh.getLastColumn());
+    } catch (e) { lines.push(label + ': ERR ' + e.message); }
+  }
+  idc('VOUCHER anggota', VOUCHER_SPREADSHEET_ID, VOUCHER_SHEET_NAME || 'Voucher');
+  idc('VOUCHER karyawan', VOUCHER_KARYAWAN_SPREADSHEET_ID, VOUCHER_KARYAWAN_SHEET_NAME || 'Voucher');
+  idc('PIUTANG anggota', PIUTANG_ANGGOTA_SPREADSHEET_ID, PIUTANG_ANGGOTA_SHEET_NAME || 'Piutang');
+  idc('PIUTANG karyawan', PIUTANG_KARYAWAN_SPREADSHEET_ID, PIUTANG_KARYAWAN_SHEET_NAME || 'Piutang');
+  try {
+    var main = SpreadsheetApp.getActiveSpreadsheet();
+    ['karyawan', 'anggota'].forEach(function (kind) {
+      ['voucher', 'piutang', 'mutasi', 'trx'].forEach(function (table) {
+        var sh = getSpartaMirrorSheet_(kind, table);
+        if (sh) lines.push('mirror ' + kind + '/' + table + ': lastRow=' + sh.getLastRow() + ' lastCol=' + sh.getLastColumn());
+      });
+    });
+  } catch (e) { lines.push('mirror: ERR ' + e.message); }
+
+  var keys = [];
+  Object.keys(CACHE_DEF).forEach(function (k) { keys.push(CACHE_DEF[k].key); });
+  ['karyawan', 'anggota'].forEach(function (kind) {
+    ['voucher', 'piutang', 'mutasi', 'trx'].forEach(function (table) { keys.push(mirrorCacheKey_(kind, table)); });
+  });
+  keys.push('voucher_' + String(VOUCHER_SPREADSHEET_ID || '').trim() + '_' + (VOUCHER_SHEET_NAME || 'Voucher'));
+  keys.push('voucher_' + String(VOUCHER_KARYAWAN_SPREADSHEET_ID || '').trim() + '_' + (VOUCHER_KARYAWAN_SHEET_NAME || 'Voucher'));
+  keys = keys.filter(function (k, i) { return keys.indexOf(k) === i && String(k).indexOf('undefined') < 0; });
+  keys.forEach(function (k) {
+    var s = Date.now();
+    var list = cacheGetBig_(k);
+    var ms = Date.now() - s;
+    var jk = 0;
+    if (Array.isArray(list)) { try { jk = Math.round(JSON.stringify(list).length / 1024); } catch (e) {} }
+    lines.push('cache [' + k + ']: ' + (list ? 'HIT count=' + list.length + ' jsonKb=' + jk : 'MISS') + ' (baca=' + ms + 'ms)');
+  });
+
+  lines.push('total waktu: ' + (Date.now() - t0) + 'ms');
+  var out = lines.join('\n');
+  Logger.log(out);
+  return { ok: true, info: out };
 }
