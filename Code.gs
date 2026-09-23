@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.1';
+var APP_VERSION = '2.0.2';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -480,26 +480,23 @@ var MEM_CACHE_ = {};
 
 function getCacheRows_(def, fetchFn) {
   if (Object.prototype.hasOwnProperty.call(MEM_CACHE_, def.key)) return MEM_CACHE_[def.key];
-  var cache = CacheService.getScriptCache();
-  var hit = cache.get(def.key);
+  var hit = cacheGetBig_(def.key);
   if (hit) {
     try {
-      var parsed = JSON.parse(hit);
-      MEM_CACHE_[def.key] = parsed;
-      return parsed;
+      MEM_CACHE_[def.key] = hit;
+      return hit;
     } catch (e) {}
   }
   var data = fetchFn();
   MEM_CACHE_[def.key] = data;
-  try { cache.put(def.key, JSON.stringify(data), def.ttl); } catch (e) {}
+  cachePutBig_(def.key, data, def.ttl);
   return data;
 }
 
 function clearDataCache_() {
   try {
     var keys = [CACHE_DEF.ANGGOTA.key, CACHE_DEF.PIUTANG.key, CACHE_DEF.PIUTANG_K.key, CACHE_DEF.TRX.key, CACHE_DEF.USERS.key, 'sparta_d_anggota_ext', 'piutanga_ext_' + PIUTANG_ANGGOTA_SPREADSHEET_ID + '_' + PIUTANG_ANGGOTA_SHEET_NAME];
-    keys.forEach(function (k) { delete MEM_CACHE_[k]; });
-    CacheService.getScriptCache().removeAll(keys);
+    keys.forEach(function (k) { delete MEM_CACHE_[k]; cacheRemoveBig_(k); });
   } catch (e) {}
 }
 
@@ -507,17 +504,65 @@ function getAnggotaCache_() { return getCacheRows_(CACHE_DEF.ANGGOTA, getAnggota
 function getPiutangCache_() { return getCacheRows_(CACHE_DEF.PIUTANG, getPiutangList); }
 function getTrxCache_() { return getCacheRows_(CACHE_DEF.TRX, getRedeemList); }
 
-/** Baca objek dari ScriptCache (JSON) tanpa memuat ke MEM_CACHE_. */
-function getCacheObj_(key) {
-  var hit = null;
-  try { hit = CacheService.getScriptCache().get(key); } catch (e) {}
-  if (!hit) return null;
-  try { return JSON.parse(hit); } catch (e) { return null; }
+/**
+ * Cache pendukung data besar yang TIDAK muat dalam satu nilai CacheService
+ * (batas ~100 KB per nilai). Bila JSON melebihi CACHE_CHUNK_MAX, nilai dipecah
+ * menjadi beberapa kunci cache "key#1..key#n" dengan meta singkat
+ * "key = '#c<n>'" (di file, bila muat satu nilai, key berisi JSON penuh).
+ * Semua operasi transparan; bila salah satu chunk hilang, miss => baca ulang.
+ */
+var CACHE_CHUNK_MAX = 50000;
+
+function cachePutBig_(key, obj, ttl) {
+  try {
+    var cache = CacheService.getScriptCache();
+    var j = JSON.stringify(obj);
+    if (!j) return;
+    if (j.length <= CACHE_CHUNK_MAX) {
+      cache.put(key, j, ttl || 900);
+      cache.remove(key + '#1');
+      return;
+    }
+    var old = cache.get(key);
+    if (old && old.indexOf('#c') === 0) {
+      var oldN = parseInt(old.substring(2), 10) || 0;
+      for (var o = 1; o <= oldN; o++) cache.remove(key + '#' + o);
+    }
+    var chunks = Math.ceil(j.length / CACHE_CHUNK_MAX);
+    for (var i = 1; i <= chunks; i++) {
+      cache.put(key + '#' + i, j.substr((i - 1) * CACHE_CHUNK_MAX, CACHE_CHUNK_MAX), ttl || 900);
+    }
+    cache.put(key, '#c' + chunks, ttl || 900);
+  } catch (e) {}
 }
 
-/** Simpan objek ke ScriptCache (JSON). */
-function putCacheObj_(key, obj, ttl) {
-  try { CacheService.getScriptCache().put(key, JSON.stringify(obj), ttl || 900); } catch (e) {}
+function cacheGetBig_(key) {
+  var cache = CacheService.getScriptCache();
+  var v = null;
+  try { v = cache.get(key); } catch (e) {}
+  if (!v) return null;
+  if (v.indexOf('#c') === 0) {
+    var chunks = parseInt(v.substring(2), 10) || 0;
+    var parts = [];
+    for (var i = 1; i <= chunks; i++) {
+      var pv = cache.get(key + '#' + i);
+      if (pv === null || pv === undefined) return null;
+      parts.push(pv);
+    }
+    v = parts.join('');
+  }
+  try { return JSON.parse(v); } catch (e) { return null; }
+}
+
+function cacheRemoveBig_(key) {
+  try {
+    var cache = CacheService.getScriptCache();
+    var v = cache.get(key);
+    var chunks = 0;
+    if (v && v.indexOf('#c') === 0) chunks = parseInt(v.substring(2), 10) || 0;
+    cache.remove(key);
+    for (var i = 1; i <= Math.max(chunks, 1); i++) cache.remove(key + '#' + i);
+  } catch (e) {}
 }
 
 /**
@@ -526,10 +571,10 @@ function putCacheObj_(key, obj, ttl) {
  * load halaman berikutnya tidak perlu membaca spreadsheet dari nol.
  */
 function patchCacheList_(key, ttl, patchFn) {
-  var list = getCacheObj_(key);
+  var list = cacheGetBig_(key);
   if (!Array.isArray(list)) return;
   patchFn(list);
-  putCacheObj_(key, list, ttl);
+  cachePutBig_(key, list, ttl);
 }
 
 /** ------------------------------------------------------------------ */
@@ -585,11 +630,9 @@ function readVoucherSheet_(spreadsheetId, sheetName, normalizeFn) {
     return { ok: false, message: 'Spreadsheet voucher belum dikonfigurasi di Code.gs.', list: [] };
   }
   var cacheKey = 'voucher_' + spreadsheetId + '_' + (sheetName || 'Voucher');
-  var cache = CacheService.getScriptCache();
-  var hit = null;
-  try { hit = cache.get(cacheKey); } catch (e) {}
+  var hit = cacheGetBig_(cacheKey);
   if (hit) {
-    try { return { ok: true, message: 'Data voucher dimuat (cache) dari ' + sheetName + '.', list: JSON.parse(hit) }; } catch (e) {}
+    try { return { ok: true, message: 'Data voucher dimuat (cache) dari ' + sheetName + '.', list: hit }; } catch (e) {}
   }
   try {
     var ss = SpreadsheetApp.openById(spreadsheetId);
@@ -612,7 +655,7 @@ function readVoucherSheet_(spreadsheetId, sheetName, normalizeFn) {
       if (String(obj[headers[0] || 'Kode']).trim() === '') return;
       list.push(normalizeFn(obj));
     });
-    try { cache.put(cacheKey, JSON.stringify(list), 900); } catch (e) {}
+    cachePutBig_(cacheKey, list, 900);
     return { ok: true, message: 'Data voucher dimuat dari ' + sheetName + '.', list: list };
   } catch (e) {
     var m = String(e.message || '');
@@ -704,12 +747,11 @@ function getVoucherBundle(data) {
 
 function clearVoucherCache() {
   try {
-    var c = CacheService.getScriptCache();
-    c.remove('voucher_' + getVoucherConfig_().spreadsheetId + '_' + getVoucherConfig_().sheetName);
-    c.remove('voucher_' + getVoucherKaryawanConfig_().spreadsheetId + '_' + getVoucherKaryawanConfig_().sheetName);
-    c.remove('voucher_' + getMutasiConfig_('anggota').spreadsheetId + '_' + getMutasiConfig_('anggota').sheetName);
-    c.remove('voucher_' + getMutasiConfig_('karyawan').spreadsheetId + '_' + getMutasiConfig_('karyawan').sheetName);
-    c.remove('vstats_' + VOUCHER_SPREADSHEET_ID);
+    cacheRemoveBig_('voucher_' + getVoucherConfig_().spreadsheetId + '_' + getVoucherConfig_().sheetName);
+    cacheRemoveBig_('voucher_' + getVoucherKaryawanConfig_().spreadsheetId + '_' + getVoucherKaryawanConfig_().sheetName);
+    cacheRemoveBig_('voucher_' + getMutasiConfig_('anggota').spreadsheetId + '_' + getMutasiConfig_('anggota').sheetName);
+    cacheRemoveBig_('voucher_' + getMutasiConfig_('karyawan').spreadsheetId + '_' + getMutasiConfig_('karyawan').sheetName);
+    cacheRemoveBig_('vstats_' + VOUCHER_SPREADSHEET_ID);
   } catch (e) {}
   clearMirrorCache_('anggota', 'voucher');
   clearMirrorCache_('karyawan', 'voucher');
@@ -726,11 +768,10 @@ function clearAllCache() {
 }
 
 function voucherStatsMap_() {
-  var cache = CacheService.getScriptCache();
   var key = 'vstats_' + VOUCHER_SPREADSHEET_ID;
-  var hit = cache.get(key);
+  var hit = cacheGetBig_(key);
   if (hit) {
-    try { return JSON.parse(hit); } catch (e) {}
+    try { return hit; } catch (e) {}
   }
   var res = readMirrorSheet_('anggota', 'voucher', normalizeVoucher_, 'voucher anggota');
   var map = {};
@@ -747,7 +788,7 @@ function voucherStatsMap_() {
       map[k].total += Number(v.Nilai || 0);
     });
   });
-  try { cache.put(key, JSON.stringify(map), 900); } catch (e) {}
+  cachePutBig_(key, map, 900);
   return map;
 }
 
@@ -1015,7 +1056,7 @@ function clearMirrorCache_(kind, table) {
   try {
     var key = mirrorCacheKey_(kind, table);
     delete MEM_CACHE_[key];
-    CacheService.getScriptCache().remove(key);
+    cacheRemoveBig_(key);
   } catch (e) {}
 }
 
@@ -1023,11 +1064,9 @@ function clearMirrorCache_(kind, table) {
 function readMirrorSheet_(kind, table, normalizeFn, label) {
   var sheetName = spartaMirrorSheetName_(kind, table);
   var cacheKey = mirrorCacheKey_(kind, table);
-  var cache = CacheService.getScriptCache();
-  var hit = null;
-  try { hit = cache.get(cacheKey); } catch (e) {}
+  var hit = cacheGetBig_(cacheKey);
   if (hit) {
-    try { return { ok: true, message: 'Data ' + label + ' dimuat (cache) dari sheet "' + sheetName + '".', list: JSON.parse(hit) }; } catch (e) {}
+    try { return { ok: true, message: 'Data ' + label + ' dimuat (cache) dari sheet "' + sheetName + '".', list: hit }; } catch (e) {}
   }
   if (!sheetName) return { ok: false, message: 'Jenis tabel tidak dikenal.', list: [] };
   var sheet = getSpartaMirrorSheet_(kind, table);
@@ -1052,7 +1091,7 @@ function readMirrorSheet_(kind, table, normalizeFn, label) {
       var n = normalizeFn(obj);
       if (n) list.push(n);
     });
-    try { cache.put(cacheKey, JSON.stringify(list), 300); } catch (e) {}
+    cachePutBig_(cacheKey, list, 300);
     return { ok: true, message: 'Data ' + label + ' dimuat dari sheet "' + sheetName + '".', list: list };
   } catch (e) {
     return { ok: false, message: 'Gagal memuat data ' + label + ': ' + e.message, list: [] };
@@ -1217,9 +1256,9 @@ function normalizeNotifikasiToko_(n) {
 function readNotifikasiToko_() {
   var cacheKey = 'sparta_notif_toko';
   try {
-    var hit = CacheService.getScriptCache().get(cacheKey);
+    var hit = cacheGetBig_(cacheKey);
     if (hit) {
-      try { return { ok: true, message: 'Data toko dimuat (cache) dari sheet "Notifikasi".', list: JSON.parse(hit) }; } catch (e) {}
+      try { return { ok: true, message: 'Data toko dimuat (cache) dari sheet "Notifikasi".', list: hit }; } catch (e) {}
     }
   } catch (e) {}
   var sheet = getSpreadsheet_().getSheetByName(SPARTA_NOTIF_SHEET_NAME);
@@ -1239,7 +1278,7 @@ function readNotifikasiToko_() {
       if (n) list.push(n);
     });
     list.sort(function (a, b) { return String(b.Waktu).localeCompare(String(a.Waktu)); });
-    try { CacheService.getScriptCache().put(cacheKey, JSON.stringify(list), 300); } catch (e) {}
+    cachePutBig_(cacheKey, list, 300);
     return { ok: true, message: 'Data toko dimuat dari sheet "Notifikasi".', list: list };
   } catch (e) {
     return { ok: false, message: 'Gagal memuat notifikasi toko: ' + e.message, list: [] };
@@ -1247,7 +1286,7 @@ function readNotifikasiToko_() {
 }
 
 function clearNotifikasiTokoCache_() {
-  try { CacheService.getScriptCache().remove('sparta_notif_toko'); } catch (e) {}
+  try { cacheRemoveBig_('sparta_notif_toko'); } catch (e) {}
 }
 
 /** Apakah notifikasi per toko terlihat oleh sesi saat ini (Semua / toko ini / admin). */
@@ -1292,9 +1331,8 @@ function resolveTokoRecipients_(tipe, target) {
 function clearNotifikasiCache_(kind) {
   clearMirrorCache_(kind, 'notifikasi');
   try {
-    var c = CacheService.getScriptCache();
-    c.remove('sparta_notif_' + kind);
-    c.remove('sparta_notif_opts_' + kind);
+    cacheRemoveBig_('sparta_notif_' + kind);
+    cacheRemoveBig_('sparta_notif_opts_' + kind);
   } catch (e) {}
 }
 
@@ -1963,11 +2001,9 @@ function getDataAnggotaConfig_() {
 function readDataAnggotaExt_() {
   var conf = getDataAnggotaConfig_();
   var cacheKey = 'sparta_d_anggota_ext';
-  var cache = CacheService.getScriptCache();
-  var hit = null;
-  try { hit = cache.get(cacheKey); } catch (e) {}
+  var hit = cacheGetBig_(cacheKey);
   if (hit) {
-    try { return { ok: true, message: 'Data anggota dimuat (cache).', list: JSON.parse(hit) }; } catch (e) {}
+    try { return { ok: true, message: 'Data anggota dimuat (cache).', list: hit }; } catch (e) {}
   }
   if (!conf.spreadsheetId) return getErrorObj_('Spreadsheet data anggota belum dikonfigurasi di Code.gs.');
   try {
@@ -1987,7 +2023,7 @@ function readDataAnggotaExt_() {
       if (a) list.push(a);
     });
     list.sort(function (a, b) { return String(a.NoAnggota).localeCompare(String(b.NoAnggota)); });
-    try { cache.put(cacheKey, JSON.stringify(list), 900); } catch (e) {}
+    cachePutBig_(cacheKey, list, 900);
     return { ok: true, message: 'Data anggota dimuat dari ' + conf.sheetName + '.', list: list };
   } catch (e) {
     var m = String(e.message || '');
@@ -1999,7 +2035,7 @@ function readDataAnggotaExt_() {
 }
 
 function clearDataAnggotaExtCache_() {
-  try { CacheService.getScriptCache().remove('sparta_d_anggota_ext'); } catch (e) {}
+  try { cacheRemoveBig_('sparta_d_anggota_ext'); } catch (e) {}
 }
 
 function normalizeDataAnggotaExt_(row) {
@@ -2113,11 +2149,9 @@ function getDataKaryawanConfig_() {
 function readDataKaryawan_() {
   var conf = getDataKaryawanConfig_();
   var cacheKey = 'sparta_d_karyawan@' + APP_VERSION;
-  var cache = CacheService.getScriptCache();
-  var hit = null;
-  try { hit = cache.get(cacheKey); } catch (e) {}
+  var hit = cacheGetBig_(cacheKey);
   if (hit) {
-    try { return { ok: true, message: 'Data karyawan dimuat (cache).', list: JSON.parse(hit) }; } catch (e) {}
+    try { return { ok: true, message: 'Data karyawan dimuat (cache).', list: hit }; } catch (e) {}
   }
   if (!conf.spreadsheetId) return getErrorObj_('Spreadsheet data karyawan belum dikonfigurasi di Code.gs.');
   try {
@@ -2136,7 +2170,7 @@ function readDataKaryawan_() {
       var k = normalizeDataKaryawan_(raw);
       if (String(k.NIPBaru || k.NIPLama || k.NamaLengkap || '').trim() !== '') list.push(k);
     });
-    try { cache.put(cacheKey, JSON.stringify(list), 900); } catch (e) {}
+    cachePutBig_(cacheKey, list, 900);
     return { ok: true, message: 'Data karyawan dimuat dari ' + conf.sheetName + '.', list: list };
   } catch (e) {
     var m = String(e.message || '');
@@ -2322,7 +2356,7 @@ function readPiutangKaryawanExt_() {
 function clearPiutangKaryawanCache_() {
   try {
     var conf = getPiutangKaryawanConfig_();
-    CacheService.getScriptCache().remove('piutangk_ext_' + conf.spreadsheetId + '_' + (conf.sheetName || 'Piutang'));
+    cacheRemoveBig_('piutangk_ext_' + conf.spreadsheetId + '_' + (conf.sheetName || 'Piutang'));
   } catch (e) {}
   clearMirrorCache_('karyawan', 'piutang');
 }
@@ -2596,7 +2630,7 @@ function readPiutangAnggotaExt_() {
 function clearPiutangAnggotaCache_() {
   try {
     var conf = getPiutangAnggotaConfig_();
-    CacheService.getScriptCache().remove('piutanga_ext_' + conf.spreadsheetId + '_' + (conf.sheetName || 'Piutang'));
+    cacheRemoveBig_('piutanga_ext_' + conf.spreadsheetId + '_' + (conf.sheetName || 'Piutang'));
   } catch (e) {}
   clearMirrorCache_('anggota', 'piutang');
 }
@@ -2997,6 +3031,8 @@ function previewWaPiutang(data) {
 function warmWaData(data) {
   data = data || {};
   if (!validasiSesi(String(data.token || '').trim())) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
+  readMirrorSheet_('karyawan', 'voucher', normalizeVoucherKaryawan_, 'voucher karyawan');
+  readMirrorSheet_('anggota', 'voucher', normalizeVoucher_, 'voucher anggota');
   readPiutangKaryawanExt_();
   readDataKaryawan_();
   readDataAnggotaExt_();
@@ -3793,9 +3829,8 @@ function redeemVoucher(data) {
     try {
       delete MEM_CACHE_[extVoucherKey];
       delete MEM_CACHE_[CACHE_DEF.TRX.key];
-      var c2 = CacheService.getScriptCache();
-      c2.remove(CACHE_DEF.TRX.key);
-      c2.remove('vstats_' + VOUCHER_SPREADSHEET_ID);
+      cacheRemoveBig_(CACHE_DEF.TRX.key);
+      cacheRemoveBig_('vstats_' + VOUCHER_SPREADSHEET_ID);
     } catch (e) {}
     return {
       ok: true,
@@ -4213,7 +4248,7 @@ function seedAdminUser_() {
 
 function clearUsersCache_() {
   try {
-    CacheService.getScriptCache().remove(CACHE_DEF.USERS.key);
+    cacheRemoveBig_(CACHE_DEF.USERS.key);
   } catch (e) {}
 }
 
