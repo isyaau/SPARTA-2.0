@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.5';
+var APP_VERSION = '2.0.6';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -472,11 +472,11 @@ function sortBy_(arr, key, desc) {
 /** ------------------------------------------------------------------ */
 
 var CACHE_DEF = {
-  ANGGOTA: { key: 'sparta_d_anggota', ttl: 120 },
-  PIUTANG: { key: 'sparta_d_piutang', ttl: 120 },
-  PIUTANG_K: { key: 'sparta_d_piutangk', ttl: 120 },
-  TRX: { key: 'sparta_d_trx', ttl: 120 },
-  USERS: { key: 'sparta_d_users', ttl: 120 }
+  ANGGOTA: { key: 'sparta_d_anggota', ttl: 3600 },
+  PIUTANG: { key: 'sparta_d_piutang', ttl: 3600 },
+  PIUTANG_K: { key: 'sparta_d_piutangk', ttl: 3600 },
+  TRX: { key: 'sparta_d_trx', ttl: 3600 },
+  USERS: { key: 'sparta_d_users', ttl: 3600 }
 };
 
 var MEM_CACHE_ = {};
@@ -662,7 +662,17 @@ function readVoucherSheet_(spreadsheetId, sheetName, normalizeFn) {
     var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]
       .map(function (h) { return String(h).trim(); });
     var rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
-    applyKodeDisplayValues_(headers, rows, sheet.getRange(2, 1, lastRow - 1, headers.length).getDisplayValues());
+    // Baca nilai tampilan (getDisplayValues) HANYA untuk kolom kode (nol di
+    // depan perlu dipertahankan). Menghindari render display sseluruh kolom
+    // sheet yang besar — penyebab lambat 30-50 detik saat cache dingin.
+    var kodeIdx = [];
+    (headers || []).forEach(function (h, i) { if (isKodeTextCol_(h)) kodeIdx.push(i); });
+    kodeIdx.forEach(function (c) {
+      var disp = sheet.getRange(2, c + 1, lastRow - 1, 1).getDisplayValues();
+      rows.forEach(function (row, r) {
+        if (disp[r] && disp[r][0] !== undefined && disp[r][0] !== null) row[c] = disp[r][0];
+      });
+    });
     var list = [];
     rows.forEach(function (row, i) {
       var obj = { Row: i + 2 };
@@ -672,7 +682,7 @@ function readVoucherSheet_(spreadsheetId, sheetName, normalizeFn) {
       if (String(obj[headers[0] || 'Kode']).trim() === '') return;
       list.push(normalizeFn(obj));
     });
-    cachePutBig_(cacheKey, list, 900);
+    cachePutBig_(cacheKey, list, 3600);
     return { ok: true, message: 'Data voucher dimuat dari ' + sheetName + '.', list: list };
   } catch (e) {
     var m = String(e.message || '');
@@ -805,7 +815,7 @@ function voucherStatsMap_() {
       map[k].total += Number(v.Nilai || 0);
     });
   });
-  cachePutBig_(key, map, 900);
+  cachePutBig_(key, map, 3600);
   return map;
 }
 
@@ -1128,7 +1138,7 @@ function readMirrorSheet_(kind, table, normalizeFn, label) {
       var n = normalizeFn(obj);
       if (n) list.push(n);
     });
-    cachePutBig_(cacheKey, list, 300);
+    cachePutBig_(cacheKey, list, 3600);
     return { ok: true, message: 'Data ' + label + ' dimuat dari sheet "' + sheetName + '".', list: list };
   } catch (e) {
     return { ok: false, message: 'Gagal memuat data ' + label + ': ' + e.message, list: [] };
@@ -1315,7 +1325,7 @@ function readNotifikasiToko_() {
       if (n) list.push(n);
     });
     list.sort(function (a, b) { return String(b.Waktu).localeCompare(String(a.Waktu)); });
-    cachePutBig_(cacheKey, list, 300);
+    cachePutBig_(cacheKey, list, 3600);
     return { ok: true, message: 'Data toko dimuat dari sheet "Notifikasi".', list: list };
   } catch (e) {
     return { ok: false, message: 'Gagal memuat notifikasi toko: ' + e.message, list: [] };
@@ -2060,7 +2070,7 @@ function readDataAnggotaExt_() {
       if (a) list.push(a);
     });
     list.sort(function (a, b) { return String(a.NoAnggota).localeCompare(String(b.NoAnggota)); });
-    cachePutBig_(cacheKey, list, 900);
+    cachePutBig_(cacheKey, list, 3600);
     return { ok: true, message: 'Data anggota dimuat dari ' + conf.sheetName + '.', list: list };
   } catch (e) {
     var m = String(e.message || '');
@@ -2207,7 +2217,7 @@ function readDataKaryawan_() {
       var k = normalizeDataKaryawan_(raw);
       if (String(k.NIPBaru || k.NIPLama || k.NamaLengkap || '').trim() !== '') list.push(k);
     });
-    cachePutBig_(cacheKey, list, 900);
+    cachePutBig_(cacheKey, list, 3600);
     return { ok: true, message: 'Data karyawan dimuat dari ' + conf.sheetName + '.', list: list };
   } catch (e) {
     var m = String(e.message || '');
@@ -2401,7 +2411,7 @@ function clearPiutangKaryawanCache_() {
 /** Patch cache mirror piutang (tambah baris kredit baru yang baru dicatat). */
 function patchPiutangCacheAppend_(kind, rawRow) {
   var norm = kind === 'karyawan' ? normalizePiutangKaryawan_ : normalizePiutangAnggota_;
-  patchCacheList_(mirrorCacheKey_(kind, 'piutang'), 300, function (list) {
+  patchCacheList_(mirrorCacheKey_(kind, 'piutang'), 3600, function (list) {
     var n = norm(rawRow);
     if (n) list.unshift(n);
   });
@@ -2409,7 +2419,7 @@ function patchPiutangCacheAppend_(kind, rawRow) {
 
 /** Patch cache mirror piutang: isi kolom Verifikasi untuk ID yang bersangkutan. */
 function patchPiutangVerifikasiCache_(kind, idSystem, link) {
-  patchCacheList_(mirrorCacheKey_(kind, 'piutang'), 300, function (list) {
+  patchCacheList_(mirrorCacheKey_(kind, 'piutang'), 3600, function (list) {
     list.forEach(function (p) {
       if (String(p.IDSystem || '').trim() === String(idSystem || '').trim()) p.Verifikasi = link;
     });
@@ -2885,7 +2895,7 @@ function setStatusNotif_(kind, idSystem) {
   var snCol = headers.indexOf('Status Notif') + 1;
   if (snCol >= 1) sheet.getRange(rowIndex, snCol).setValue('Terkirim');
   mirrorSetCell_(kind, 'piutang', 'ID System', idSystem, 'Status Notif', 'Terkirim');
-  patchCacheList_(mirrorCacheKey_(kind, 'piutang'), 300, function (list) {
+  patchCacheList_(mirrorCacheKey_(kind, 'piutang'), 3600, function (list) {
     list.forEach(function (p) {
       if (String(p.IDSystem || '').trim() === String(idSystem || '').trim()) p.StatusNotif = 'Terkirim';
     });
@@ -3087,15 +3097,37 @@ function previewWaPiutang(data) {
 function warmWaData(data) {
   data = data || {};
   if (!validasiSesi(String(data.token || '').trim())) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
+  return warmWaDataInt_();
+}
+
+function warmWaDataInt_() {
   readVoucherSheet_(getVoucherConfig_().spreadsheetId, getVoucherConfig_().sheetName, normalizeVoucher_);
   readVoucherSheet_(getVoucherKaryawanConfig_().spreadsheetId, getVoucherKaryawanConfig_().sheetName, normalizeVoucherKaryawan_);
   readMirrorSheet_('karyawan', 'voucher', normalizeVoucherKaryawan_, 'voucher karyawan');
   readMirrorSheet_('anggota', 'voucher', normalizeVoucher_, 'voucher anggota');
+  readMirrorSheet_('karyawan', 'mutasi', normalizeMutasiKaryawan_, 'mutasi karyawan');
+  readMirrorSheet_('anggota', 'mutasi', normalizeMutasiAnggota_, 'mutasi anggota');
   readPiutangKaryawanExt_();
   readDataKaryawan_();
   readDataAnggotaExt_();
   readPiutangAnggotaExt_();
   return { ok: true };
+}
+
+/** Dijalankan otomatis oleh time trigger (tanpa token/URL). */
+function warmWaDataReguler() {
+  try { return warmWaDataInt_(); } catch (e) { return { ok: false, message: String(e.message || '') }; }
+}
+
+/** JALANKAN SEKALI di editor Apps Script agar cache dipanaskan tiap 30 menit. */
+function setupWarmTrigger() {
+  var n = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (String(t.getHandlerFunction()) === 'warmWaDataReguler') n++;
+  });
+  if (n > 0) return { ok: true, pesan: 'Trigger pemanasan cache sudah aktif (' + n + ').' };
+  ScriptApp.newTrigger('warmWaDataReguler').timeBased().everyMinutes(30).create();
+  return { ok: true, pesan: 'Trigger pemanasan cache dibuat: tiap 30 menit.' };
 }
 
 /** ------------------------------------------------------------------ */
@@ -3550,7 +3582,7 @@ function appendMutasiRedeemBulk_(kind, u, items, tanggal, nota, piutangId) {
 
     var mirrorRows = mirrorAppendRows_(kind, 'mutasi', headers, rows);
     if (mirrorRows.length) {
-      patchCacheList_(mirrorCacheKey_(kind, 'mutasi'), 300, function (list) {
+      patchCacheList_(mirrorCacheKey_(kind, 'mutasi'), 3600, function (list) {
         mirrorRows.forEach(function (rawRow) {
           var n = norm(rawRow);
           if (n) list.push(n);
@@ -3891,7 +3923,7 @@ function redeemVoucher(data) {
     // lain seperti ANGGOTA/USERS/piutang/voucher yang tidak berubah),
     // agar load halaman berikutnya cepat (tidak baca ulang dari nol).
     var extVoucherKey = 'voucher_' + conf.spreadsheetId + '_' + (conf.sheetName || 'Voucher');
-    patchCacheList_(extVoucherKey, 900, function (list) {
+    patchCacheList_(extVoucherKey, 3600, function (list) {
       var s = {};
       redeemedKodes.forEach(function (k) { s[String(k || '').trim().replace(/^'/, '').replace(/^0+/, '')] = true; });
       list.forEach(function (item) {
