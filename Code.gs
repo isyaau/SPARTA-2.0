@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.21';
+var APP_VERSION = '2.0.22';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -1048,15 +1048,21 @@ function mirrorAppendRows_(kind, table, headers, valuesList) {
     });
   });
   var sname = sheet.getName();
-  var localId = localSpreadsheetId_();
-  if (localId && sheetsApiProbe_()) {
-    try {
-      Sheets.Spreadsheets.Values.append({ values: matrix }, localId, sname + '!A1', { valueInputOption: 'USER_ENTERED' });
-    } catch (e) {
-      sheet.getRange(startRow, 1, matrix.length, dstHeaders.length).setValues(matrix);
-    }
+  var fbAppend = function () { sheet.getRange(startRow, 1, matrix.length, dstHeaders.length).setValues(matrix); };
+  if (mirrorBatchActive_()) {
+    mirrorBatchPush_({
+      range: sname + '!A' + startRow + ':' + colLetter_(dstHeaders.length) + (startRow + matrix.length - 1),
+      values: matrix
+    }, fbAppend);
   } else {
-    sheet.getRange(startRow, 1, matrix.length, dstHeaders.length).setValues(matrix);
+    var localId = localSpreadsheetId_();
+    if (localId && sheetsApiProbe_()) {
+      try {
+        Sheets.Spreadsheets.Values.append({ values: matrix }, localId, sname + '!A1', { valueInputOption: 'USER_ENTERED' });
+      } catch (e) { fbAppend(); }
+    } else {
+      fbAppend();
+    }
   }
   var out = [];
   for (var i = 0; i < matrix.length; i++) {
@@ -1065,6 +1071,48 @@ function mirrorAppendRows_(kind, table, headers, valuesList) {
     out.push(obj);
   }
   return out;
+}
+
+/** ------------------------------------------------------------------ */
+/** BATCH TULIS MIRROR LOKAL (satu workbook) dalam 1 panggilan REST.    */
+/** ------------------------------------------------------------------ */
+var _mirrorBatch_ = null;
+
+function mirrorBatchBegin_() {
+  _mirrorBatch_ = null;
+  var localId = localSpreadsheetId_();
+  if (localId && sheetsApiProbe_()) _mirrorBatch_ = { id: localId, data: [], fbs: [] };
+  return _mirrorBatch_;
+}
+
+function mirrorBatchActive_() {
+  return !!_mirrorBatch_;
+}
+
+function mirrorBatchPush_(entry, fallbackFn) {
+  if (!_mirrorBatch_) return false;
+  _mirrorBatch_.data.push(entry);
+  if (typeof fallbackFn === 'function') {
+    var dup = false;
+    for (var i = 0; i < _mirrorBatch_.fbs.length; i++) {
+      if (_mirrorBatch_.fbs[i].fn === fallbackFn) { dup = true; break; }
+    }
+    if (!dup) _mirrorBatch_.fbs.push({ fn: fallbackFn });
+  }
+  return true;
+}
+
+function mirrorBatchCommit_() {
+  var b = _mirrorBatch_;
+  _mirrorBatch_ = null;
+  if (!b || !b.data.length) return;
+  try {
+    Sheets.Spreadsheets.Values.batchUpdate({ valueInputOption: 'USER_ENTERED', data: b.data }, b.id);
+  } catch (e) {
+    for (var i = 0; i < b.fbs.length; i++) {
+      try { b.fbs[i].fn(); } catch (e2) {}
+    }
+  }
 }
 
 /** Perbarui satu kolom (by match) pada sheet mirror SPARTA. */
@@ -1349,29 +1397,38 @@ function mirrorSetCellsBulk_(kind, table, matchHeader, setHeader, kodeList, setV
       });
     }
     var sname = sheet.getName();
-    var localId = localSpreadsheetId_();
-    if (localId && sheetsApiProbe_()) {
-      var dataB = [];
+    if (mirrorBatchActive_()) {
+      var _fbSet = function () { setColBatch_(sheet, setCol, rowValues); };
       Object.keys(rowValues).forEach(function (r2) {
         var v2 = rowValues[r2];
         if (v2 === undefined || v2 === null) return;
-        dataB.push({ range: sname + '!' + colLetter_(setCol) + Number(r2), values: [[v2]] });
+        mirrorBatchPush_({ range: sname + '!' + colLetter_(setCol) + Number(r2), values: [[v2]] }, _fbSet);
       });
-      if (dataB.length) {
-        try {
-          Sheets.Spreadsheets.Values.batchUpdate({ valueInputOption: 'USER_ENTERED', data: dataB }, localId);
-        } catch (e) {
-          setColBatch_(sheet, setCol, rowValues);
-        }
-      }
     } else {
-      setColBatch_(sheet, setCol, rowValues);
+      var localId = localSpreadsheetId_();
+      if (localId && sheetsApiProbe_()) {
+        var dataB = [];
+        Object.keys(rowValues).forEach(function (r2) {
+          var v2 = rowValues[r2];
+          if (v2 === undefined || v2 === null) return;
+          dataB.push({ range: sname + '!' + colLetter_(setCol) + Number(r2), values: [[v2]] });
+        });
+        if (dataB.length) {
+          try {
+            Sheets.Spreadsheets.Values.batchUpdate({ valueInputOption: 'USER_ENTERED', data: dataB }, localId);
+          } catch (e) {
+            setColBatch_(sheet, setCol, rowValues);
+          }
+        }
+      } else {
+        setColBatch_(sheet, setCol, rowValues);
+      }
     }
     patchMirrorCacheStatus_(kind, table, matchHeader, setHeader, kodeList, setValue);
   } catch (e) {}
 }
 function patchMirrorCacheStatus_(kind, table, matchHeader, setHeader, kodeList, setValue) {
-  patchCacheList_(mirrorCacheKey_(kind, table), 300, function (list) {
+  patchCacheList_(mirrorCacheKey_(kind, table), 43200, function (list) {
     var set = {};
     kodeList.forEach(function (k) { set[String(k || '').trim().replace(/^'/, '').replace(/^0+/, '')] = true; });
     list.forEach(function (item) {
@@ -4136,6 +4193,10 @@ function redeemVoucher(data) {
     perf_('redeem2 cekPemegang+nota', _seg);
     _seg = Date.now();
 
+    // Buka batch custom tulis mirror lokal (voucher/piutang/mutasi) supaya
+    // semua jadi SATU panggilan REST ke workbook SPARTA.
+    mirrorBatchBegin_();
+
     // Perbarui status voucher eksternal & mirror SPARTA secara batch (1-2 setValues).
     if (sheetsApiProbe_()) {
       setStatusExtBatch_(conf.spreadsheetId, conf.sheetName, statusCol, extRowValues);
@@ -4209,6 +4270,7 @@ function redeemVoucher(data) {
     if (!mRes.ok) mutasiMsg = ' Mutasi gagal: ' + mRes.message + '.';
     _perf.appendMutasi = Date.now() - _seg;
     perf_('redeem6 appendMutasi', _seg);
+    mirrorBatchCommit_();
     _seg = Date.now();
 
     var items = redeemed.map(function (item) {
@@ -4283,6 +4345,7 @@ return {
   } catch (e) {
     return getErrorObj_('Gagal redeem voucher: ' + e.message);
   } finally {
+    if (_mirrorBatch_ && _mirrorBatch_.data.length) mirrorBatchCommit_();
     lock.releaseLock();
   }
 }
