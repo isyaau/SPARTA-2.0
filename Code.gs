@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.22';
+var APP_VERSION = '2.0.23';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -210,7 +210,7 @@ function tentang() {
 }
 
 function getProfile(token) {
-  var u = internal && data._u ? data._u : validasiSesi(token);
+  var u = validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
   var username = String(u.Username || '');
   var namaToko = String(u.NamaToko || '');
@@ -2961,7 +2961,7 @@ function uploadBuktiPiutangKaryawan(data) {
   data = data || {};
   var token = String(data.token || '').trim();
   if (!token) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
-  var u = internal && data._u ? data._u : validasiSesi(token);
+  var u = validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
   var idSystem = String(data.ID || '').trim();
   if (!idSystem) return getErrorObj_('ID System tidak valid.');
@@ -3190,7 +3190,7 @@ function uploadBuktiPiutangAnggota(data) {
   data = data || {};
   var token = String(data.token || '').trim();
   if (!token) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
-  var u = internal && data._u ? data._u : validasiSesi(token);
+  var u = validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
   var idSystem = String(data.ID || '').trim();
   if (!idSystem) return getErrorObj_('ID System tidak valid.');
@@ -3421,7 +3421,7 @@ function waPiutang(data) {
   data = data || {};
   var token = String(data.token || '').trim();
   if (!token) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
-  var u = internal && data._u ? data._u : validasiSesi(token);
+  var u = validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
   var kind = data.kind === 'karyawan' ? 'karyawan' : 'anggota';
   var idSystem = String(data.ID || '').trim();
@@ -4849,7 +4849,7 @@ function validasiSesi(token) {
 }
 
 function getSesi(token) {
-  var u = internal && data._u ? data._u : validasiSesi(token);
+  var u = validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
   u.ok = true;
   return u;
@@ -4990,7 +4990,7 @@ function getAvatar(token, fileId) {
  * NamaToko/KodeToko/Role tidak dapat diubah sendiri agar filter toko tetap konsisten.
  */
 function updateProfil(token, data) {
-  var u = internal && data._u ? data._u : validasiSesi(token);
+  var u = validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
