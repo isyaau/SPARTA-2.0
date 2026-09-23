@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.6';
+var APP_VERSION = '2.0.7';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -3755,8 +3755,10 @@ function redeemVoucher(data) {
   data = data || {};
   var _tStart = Date.now();
   var _seg = _tStart;
+  var _perf = {};
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
+  _perf.lock = Date.now() - _seg;
   perf_('redeem0 lockWait', _seg);
   _seg = Date.now();
   try {
@@ -3766,6 +3768,7 @@ function redeemVoucher(data) {
     var conf = isKaryawan ? getVoucherKaryawanConfig_() : getVoucherConfig_();
     var norm = isKaryawan ? normalizeVoucherKaryawan_ : normalizeVoucher_;
     var res = readVoucherSheet_(conf.spreadsheetId, conf.sheetName, norm);
+    _perf.sesiRead = Date.now() - _seg;
     perf_('redeem1 validasiSesi+readVoucherSheet', _seg);
     _seg = Date.now();
     if (!res.ok) return { ok: false, message: res.message };
@@ -3813,12 +3816,14 @@ function redeemVoucher(data) {
       redeemed.push({ v: v, kode: kode, no: no });
     });
     if (!redeemed.length) return getErrorObj_('Tidak ada voucher Active yang bisa diredeem.' + (skipped.length ? ' Diblokir: ' + skipped.join(', ') : ''));
+    _perf.cekNota = Date.now() - _seg;
     perf_('redeem2 cekPemegang+nota', _seg);
     _seg = Date.now();
 
     // Perbarui status voucher eksternal & mirror SPARTA secara batch (1-2 setValues).
     setColBatch_(sheetV, statusCol, extRowValues);
     mirrorSetCellsBulk_(kind, 'voucher', 'Kode', 'Status', redeemedKodes, 'Used');
+    _perf.statusWrite = Date.now() - _seg;
     perf_('redeem3 statusWrite', _seg);
     _seg = Date.now();
 
@@ -3834,6 +3839,7 @@ function redeemVoucher(data) {
       item.idTrx = idTrx;
       idTrxList.push(idTrx);
     });
+    _perf.idGen = Date.now() - _seg;
     perf_('redeem4 idGen', _seg);
     _seg = Date.now();
     var piutangMsg = '';
@@ -3872,11 +3878,13 @@ function redeemVoucher(data) {
       }
     }
 
+    _perf.catat = Date.now() - _seg;
     perf_('redeem5 catat', _seg);
     _seg = Date.now();
     var mutasiMsg = '';
     var mRes = appendMutasiRedeemBulk_(kind, u, redeemed, tanggal, notaLengkap, piutangId);
     if (!mRes.ok) mutasiMsg = ' Mutasi gagal: ' + mRes.message + '.';
+    _perf.appendMutasi = Date.now() - _seg;
     perf_('redeem6 appendMutasi', _seg);
     _seg = Date.now();
 
@@ -3937,6 +3945,7 @@ function redeemVoucher(data) {
       cacheRemoveBig_(CACHE_DEF.TRX.key);
       cacheRemoveBig_('vstats_' + VOUCHER_SPREADSHEET_ID);
     } catch (e) {}
+    _perf.patchCache = Date.now() - _seg;
     perf_('redeem7 patchCache+remove', _seg);
     perf_('redeem TOTAL', _tStart);
 return {
@@ -3945,7 +3954,8 @@ return {
       piutangId: piutangId,
       piutangNominal: piutangNominal,
       struk: struk,
-      ms: Date.now() - _tStart
+      ms: Date.now() - _tStart,
+      perf: _perf
     };
   } catch (e) {
     return getErrorObj_('Gagal redeem voucher: ' + e.message);
