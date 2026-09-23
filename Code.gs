@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.7';
+var APP_VERSION = '2.0.8';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -210,7 +210,7 @@ function tentang() {
 }
 
 function getProfile(token) {
-  var u = validasiSesi(token);
+  var u = internal && data._u ? data._u : validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
   var username = String(u.Username || '');
   var namaToko = String(u.NamaToko || '');
@@ -988,6 +988,100 @@ function mirrorSetCell_(kind, table, matchHeader, matchValue, setHeader, setValu
     }
   }
 }
+
+/**
+ * ---------- Akses spreadsheet eksternal via Sheets REST API ----------
+ * (menghindari SpreadsheetApp.openById + getLastRow + header berulang yang
+ * menumpuk jadi puluhan panggilan API mahal saat redeem / catat kredit.)
+ */
+function sheetRefA1_(sheetName) {
+  var s = String(sheetName || '');
+  return /^[a-zA-Z0-9_]+$/.test(s) ? s : "'" + s.replace(/'/g, "''") + "'";
+}
+
+function colLetter_(n) {
+  var s = '';
+  while (n > 0) {
+    var m = (n - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s || 'A';
+}
+
+/** Baca baris header (nilai) sheet eksternal — 1 panggilan REST. */
+function getSheetHeadersExt_(spreadsheetId, sheetName) {
+  var resp = Sheets.Spreadsheets.Values.get(spreadsheetId, sheetRefA1_(sheetName) + '!1:1');
+  var vals = (resp && resp.values) || [];
+  return (vals[0] || []).map(function (h) { return String(h == null ? '' : h).trim(); });
+}
+
+/** Baca satu kolom mulai dari startRow (default 2) hingga data terakhir. */
+function getExtColumnValues_(spreadsheetId, sheetName, colNum, startRow) {
+  var r = startRow || 2;
+  var pref = sheetRefA1_(sheetName) + '!' + colLetter_(colNum);
+  var resp = Sheets.Spreadsheets.Values.get(spreadsheetId, pref + r + ':' + colLetter_(colNum));
+  var vals = (resp && resp.values) || [];
+  var out = [];
+  vals.forEach(function (row) { out.push(row[0] == null ? '' : row[0]); });
+  return out;
+}
+
+/** Tulis status pada baris-baris tertentu (satu kolom) — 1 panggilan batch. */
+function setStatusExtBatch_(spreadsheetId, sheetName, statusCol, rowValues) {
+  var pref = sheetRefA1_(sheetName) + '!' + colLetter_(statusCol);
+  var data = [];
+  Object.keys(rowValues || {}).forEach(function (r) {
+    var v = rowValues[r];
+    if (v === undefined || v === null) return;
+    data.push({ range: pref + Number(r), values: [[v]] });
+  });
+  if (!data.length) return;
+  Sheets.Spreadsheets.Values.batchUpdate({ valueInputOption: 'USER_ENTERED', data: data }, spreadsheetId);
+}
+
+/** Tambah baris ke sheet eksternal (posisi setelah baris terakhir) — 1 panggilan. */
+function appendRowsExt_(spreadsheetId, sheetName, valuesList) {
+  if (!valuesList || !valuesList.length) return;
+  Sheets.Spreadsheets.Values.append(spreadsheetId, sheetRefA1_(sheetName) + '!A1', { values: valuesList }, { valueInputOption: 'USER_ENTERED' });
+}
+
+function buatNotaTokoExt_(spreadsheetId, sheetName, kodeToko, dayKey, nota4) {
+  if (nota4) return String(kodeToko) + dayKey + pad_(cleanNum_(nota4), 4);
+  var urut = 0;
+  try {
+    var headers = getSheetHeadersExt_(spreadsheetId, sheetName);
+    var colIndex = headers.indexOf('Nota Toko') + 1;
+    var data = colIndex > 0 ? getExtColumnValues_(spreadsheetId, sheetName, colIndex, 2) : [];
+    var re = new RegExp('^' + String(kodeToko) + dayKey + '(\\d{4})$');
+    data.forEach(function (v) {
+      var m = String(v).match(re);
+      if (m) { var n = parseInt(m[1], 10); if (n > urut) urut = n; }
+    });
+  } catch (e) {}
+  return String(kodeToko) + dayKey + pad_(urut + 1, 4);
+}
+
+function nextIdPiutangExt_(spreadsheetId, sheetName, tgl, prefix) {
+  var dateKey = Utilities.formatDate(tgl, getTimeZone_(), 'yyMMdd');
+  var maxSeq = 0;
+  try {
+    var headers = getSheetHeadersExt_(spreadsheetId, sheetName);
+    var colIndex = headers.indexOf('ID System') + 1;
+    if (colIndex > 0) {
+      var data = getExtColumnValues_(spreadsheetId, sheetName, colIndex, 2);
+      var re = new RegExp('^' + prefix + dateKey + '(\\d+)$');
+      data.forEach(function (v) {
+        var m = String(v).match(re);
+        if (m) { var n = parseInt(m[1], 10); if (n > maxSeq) maxSeq = n; }
+      });
+    }
+  } catch (e) {}
+  return prefix + dateKey + pad_(maxSeq + 1, 4);
+}
+
+/** ------------------------------------------------------------------ */
+/** MIRROR SPARTA (sheet kerja utama)                                   */
 
 /**
  * Tulis nilai pada satu kolom untuk banyak baris; baris yang berurutan
@@ -2482,7 +2576,7 @@ function catatPiutangKaryawanExt(data, internal) {
   if (!conf.spreadsheetId) return getErrorObj_('Spreadsheet kredit karyawan belum dikonfigurasi.');
   var token = String(data.token || '').trim();
   if (!token) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
-  var u = validasiSesi(token);
+  var u = internal && data._u ? data._u : validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
 
   var no = String(data.No || '').trim();
@@ -2503,11 +2597,6 @@ function catatPiutangKaryawanExt(data, internal) {
   }
   var notaLengkap = '';
   try {
-    var ss = SpreadsheetApp.openById(conf.spreadsheetId);
-    var sheet = ss.getSheetByName(conf.sheetName) || ss.getSheets()[0];
-    if (!sheet) return getErrorObj_('Sheet "' + conf.sheetName + '" tidak ditemukan pada spreadsheet kredit karyawan.');
-    perf_('catatK2 openById', _tK0);
-
     var now = new Date();
     var waktu = Utilities.formatDate(now, getTimeZone_(), 'yyyy-MM-dd HH:mm:ss');
 
@@ -2521,8 +2610,8 @@ function catatPiutangKaryawanExt(data, internal) {
     var yy = Utilities.formatDate(tglNota, getTimeZone_(), 'yy');
     var mmdd = Utilities.formatDate(tglNota, getTimeZone_(), 'MMdd');
 
-    notaLengkap = buatNotaToko_(sheet, kodeToko, yy + mmdd, nota4);
-    var idSystem = nextIdPiutang_(sheet, tglNota, 'PIU');
+    notaLengkap = buatNotaTokoExt_(conf.spreadsheetId, conf.sheetName, kodeToko, yy + mmdd, nota4);
+    var idSystem = nextIdPiutangExt_(conf.spreadsheetId, conf.sheetName, tglNota, 'PIU');
     perf_('catatK3 buatNota+nextId', _tK0);
 
     var row = {};
@@ -2537,7 +2626,7 @@ function catatPiutangKaryawanExt(data, internal) {
       else row[h] = '';
     });
     var valuesK = KOLOM_PIUTANG_KARYAWAN_EXT.map(function (h) { return row[h] === undefined ? '' : row[h]; });
-    sheet.appendRow(valuesK);
+    appendRowsExt_(conf.spreadsheetId, conf.sheetName, [valuesK]);
     var mirK = mirrorAppendRows_('karyawan', 'piutang', KOLOM_PIUTANG_KARYAWAN_EXT, [valuesK]);
     if (mirK.length) patchPiutangCacheAppend_('karyawan', mirK[0]);
     perf_('catatK4 append+mirror+patch', _tK0);
@@ -2600,7 +2689,7 @@ function uploadBuktiPiutangKaryawan(data) {
   data = data || {};
   var token = String(data.token || '').trim();
   if (!token) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
-  var u = validasiSesi(token);
+  var u = internal && data._u ? data._u : validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
   var idSystem = String(data.ID || '').trim();
   if (!idSystem) return getErrorObj_('ID System tidak valid.');
@@ -2745,7 +2834,7 @@ function catatPiutangAnggotaExt(data, internal) {
   if (!conf.spreadsheetId) return getErrorObj_('Spreadsheet kredit anggota belum dikonfigurasi.');
   var token = String(data.token || '').trim();
   if (!token) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
-  var u = validasiSesi(token);
+  var u = internal && data._u ? data._u : validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
 
   var no = String(data.No || '').trim();
@@ -2769,11 +2858,6 @@ function catatPiutangAnggotaExt(data, internal) {
   }
   var notaLengkap = '';
   try {
-    var ss = SpreadsheetApp.openById(conf.spreadsheetId);
-    var sheet = ss.getSheetByName(conf.sheetName) || ss.getSheets()[0];
-    if (!sheet) return getErrorObj_('Sheet "' + conf.sheetName + '" tidak ditemukan pada spreadsheet kredit anggota.');
-    perf_('catatA2 openById', _tA0);
-
     var now = new Date();
     var waktu = Utilities.formatDate(now, getTimeZone_(), 'yyyy-MM-dd HH:mm:ss');
 
@@ -2787,8 +2871,8 @@ function catatPiutangAnggotaExt(data, internal) {
     var yy = Utilities.formatDate(tglNota, getTimeZone_(), 'yy');
     var mmdd = Utilities.formatDate(tglNota, getTimeZone_(), 'MMdd');
 
-    notaLengkap = buatNotaToko_(sheet, kodeToko, yy + mmdd, nota4);
-    var idSystem = nextIdPiutang_(sheet, tglNota, 'PIU');
+    notaLengkap = buatNotaTokoExt_(conf.spreadsheetId, conf.sheetName, kodeToko, yy + mmdd, nota4);
+    var idSystem = nextIdPiutangExt_(conf.spreadsheetId, conf.sheetName, tglNota, 'PIU');
     perf_('catatA3 buatNota+nextId', _tA0);
 
     var row = {};
@@ -2803,7 +2887,7 @@ function catatPiutangAnggotaExt(data, internal) {
       else row[h] = '';
     });
     var valuesA = KOLOM_PIUTANG_ANGGOTA_EXT.map(function (h) { return row[h] === undefined ? '' : row[h]; });
-    sheet.appendRow(valuesA);
+    appendRowsExt_(conf.spreadsheetId, conf.sheetName, [valuesA]);
     var mirA = mirrorAppendRows_('anggota', 'piutang', KOLOM_PIUTANG_ANGGOTA_EXT, [valuesA]);
     if (mirA.length) patchPiutangCacheAppend_('anggota', mirA[0]);
     perf_('catatA4 append+mirror+patch', _tA0);
@@ -2820,7 +2904,7 @@ function uploadBuktiPiutangAnggota(data) {
   data = data || {};
   var token = String(data.token || '').trim();
   if (!token) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
-  var u = validasiSesi(token);
+  var u = internal && data._u ? data._u : validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
   var idSystem = String(data.ID || '').trim();
   if (!idSystem) return getErrorObj_('ID System tidak valid.');
@@ -3051,7 +3135,7 @@ function waPiutang(data) {
   data = data || {};
   var token = String(data.token || '').trim();
   if (!token) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
-  var u = validasiSesi(token);
+  var u = internal && data._u ? data._u : validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
   var kind = data.kind === 'karyawan' ? 'karyawan' : 'anggota';
   var idSystem = String(data.ID || '').trim();
@@ -3525,12 +3609,7 @@ function appendMutasiRedeemBulk_(kind, u, items, tanggal, nota, piutangId) {
   var conf = getMutasiConfig_(kind);
   if (!conf.spreadsheetId) return { ok: true, message: 'Spreadsheet mutasi belum dikonfigurasi (dilewati).', count: 0 };
   try {
-    var ss = SpreadsheetApp.openById(conf.spreadsheetId);
-    var sheet = ss.getSheetByName(conf.sheetName) || ss.getSheets()[0];
-    if (!sheet) return getErrorObj_('Sheet "' + conf.sheetName + '" tidak ditemukan pada spreadsheet mutasi.');
-    var headers = sheet.getLastRow() > 0
-      ? sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); })
-      : [];
+    var headers = getSheetHeadersExt_(conf.spreadsheetId, conf.sheetName);
     if (!headers.length) return getErrorObj_('Sheet mutasi masih kosong. Isi baris header terlebih dahulu.');
 
     var waktu = Utilities.formatDate(new Date(), getTimeZone_(), 'yyyy-MM-dd HH:mm:ss');
@@ -3577,8 +3656,7 @@ function appendMutasiRedeemBulk_(kind, u, items, tanggal, nota, piutangId) {
       return row;
     });
 
-    var startRow = Math.max(sheet.getLastRow(), 1);
-    sheet.getRange(startRow + 1, 1, rows.length, headers.length).setValues(rows);
+    appendRowsExt_(conf.spreadsheetId, conf.sheetName, rows);
 
     var mirrorRows = mirrorAppendRows_(kind, 'mutasi', headers, rows);
     if (mirrorRows.length) {
@@ -3776,11 +3854,7 @@ function redeemVoucher(data) {
     var kodes = (data.kode || []).map(function (k) { return String(k).trim(); }).filter(Boolean);
     if (!kodes.length) return getErrorObj_('Pilih minimal satu voucher untuk diredeem.');
 
-    var ssV = SpreadsheetApp.openById(conf.spreadsheetId);
-    var sheetV = ssV.getSheetByName(conf.sheetName) || ssV.getSheets()[0];
-    var svHeaders = sheetV.getLastColumn() > 0
-      ? sheetV.getRange(1, 1, 1, sheetV.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); })
-      : [];
+    var svHeaders = getSheetHeadersExt_(conf.spreadsheetId, conf.sheetName);
     var statusCol = svHeaders.indexOf('Status') + 1;
     if (statusCol < 1) return getErrorObj_('Kolom Status tidak ditemukan pada sheet voucher.');
 
@@ -3821,7 +3895,7 @@ function redeemVoucher(data) {
     _seg = Date.now();
 
     // Perbarui status voucher eksternal & mirror SPARTA secara batch (1-2 setValues).
-    setColBatch_(sheetV, statusCol, extRowValues);
+    setStatusExtBatch_(conf.spreadsheetId, conf.sheetName, statusCol, extRowValues);
     mirrorSetCellsBulk_(kind, 'voucher', 'Kode', 'Status', redeemedKodes, 'Used');
     _perf.statusWrite = Date.now() - _seg;
     perf_('redeem3 statusWrite', _seg);
@@ -3853,6 +3927,7 @@ function redeemVoucher(data) {
         if (isKaryawan) {
           var rk = catatPiutangKaryawanExt({
             token: String(data.token || '').trim(),
+            _u: u,
             No: String(data.no || '').trim(),
             Nominal: pJumlah,
             Nota: String(p.Nota || '').trim(),
@@ -3865,6 +3940,7 @@ function redeemVoucher(data) {
         } else {
           var ra = catatPiutangAnggotaExt({
             token: String(data.token || '').trim(),
+            _u: u,
             No: String(data.no || '').trim(),
             Nominal: pJumlah,
             Nota: String(p.Nota || '').trim(),
@@ -4463,7 +4539,7 @@ function validasiSesi(token) {
 }
 
 function getSesi(token) {
-  var u = validasiSesi(token);
+  var u = internal && data._u ? data._u : validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
   u.ok = true;
   return u;
@@ -4604,7 +4680,7 @@ function getAvatar(token, fileId) {
  * NamaToko/KodeToko/Role tidak dapat diubah sendiri agar filter toko tetap konsisten.
  */
 function updateProfil(token, data) {
-  var u = validasiSesi(token);
+  var u = internal && data._u ? data._u : validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
