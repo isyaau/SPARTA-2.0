@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.19';
+var APP_VERSION = '2.0.20';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -617,6 +617,48 @@ function patchCacheList_(key, ttl, patchFn) {
   cachePutBig_(key, list, ttl);
 }
 
+/**
+ * Format kompak cache voucher: { h: [header...], v: [[nilai...]...] }.
+ * ~45% lebih kecil dari array-objek sehingga getAll/putAll lebih cepat.
+ * decode(skipEmpty=false) dipakai saat patch agar jumlah baris (dan Row)
+ * tidak berubah; decode(skipEmpty=true) dipakai saat dibaca utk dipakai.
+ */
+function voucherCacheDecode_(hit, normalizeFn, skipEmpty) {
+  if (Array.isArray(hit)) return hit; // format lama — biarkan seperti apa adanya
+  if (!hit || !Array.isArray(hit.h) || !Array.isArray(hit.v)) return null;
+  var nf = normalizeFn || function (o) { return o; };
+  var out = [];
+  hit.v.forEach(function (rowVals, i) {
+    var obj = { Row: i + 2 };
+    hit.h.forEach(function (h, c) {
+      obj[h] = rowVals[c] === undefined || rowVals[c] === null ? '' : rowVals[c];
+    });
+    if (skipEmpty && String(obj[hit.h[0] || 'Kode']).trim() === '') return;
+    out.push(nf(obj));
+  });
+  return out;
+}
+
+/** Patch cache voucher dengan format kompak (baris & Row tetap konsisten). */
+function patchVoucherCacheCompact_(key, ttl, patchFn) {
+  var hit = cacheGetBig_(key);
+  if (!hit) return;
+  if (Array.isArray(hit)) {
+    patchFn(hit);
+    cachePutBig_(key, hit, ttl);
+    return;
+  }
+  if (!hit || !Array.isArray(hit.h) || !Array.isArray(hit.v)) return;
+  var list = voucherCacheDecode_(hit, function (o) { return o; }, false);
+  if (!list) return;
+  patchFn(list);
+  var hdr = hit.h;
+  var rows2 = list.map(function (o) {
+    return hdr.map(function (h) { return (o[h] === undefined || o[h] === null) ? '' : o[h]; });
+  });
+  cachePutBig_(key, { h: hdr, v: rows2 }, ttl);
+}
+
 /** ------------------------------------------------------------------ */
 /** PENGATURAN                                                         */
 /** ------------------------------------------------------------------ */
@@ -672,7 +714,10 @@ function readVoucherSheet_(spreadsheetId, sheetName, normalizeFn) {
   var cacheKey = 'voucher_' + spreadsheetId + '_' + (sheetName || 'Voucher');
   var hit = cacheGetBig_(cacheKey);
   if (hit) {
-    try { return { ok: true, message: 'Data voucher dimuat (cache) dari ' + sheetName + '.', list: hit }; } catch (e) {}
+    try {
+      var hitList = voucherCacheDecode_(hit, normalizeFn, true);
+      if (hitList) return { ok: true, message: 'Data voucher dimuat (cache) dari ' + sheetName + '.', list: hitList };
+    } catch (e) {}
   }
   try {
     var useApiRead = sheetsApiProbe_();
@@ -720,7 +765,7 @@ function readVoucherSheet_(spreadsheetId, sheetName, normalizeFn) {
       if (String(obj[headers[0] || 'Kode']).trim() === '') return;
       list.push(normalizeFn(obj));
     });
-    cachePutBig_(cacheKey, list, 43200);
+    cachePutBig_(cacheKey, { h: headers, v: rows }, 43200);
     return { ok: true, message: 'Data voucher dimuat dari ' + sheetName + '.', list: list };
   } catch (e) {
     var m = String(e.message || '');
@@ -4201,7 +4246,7 @@ function redeemVoucher(data) {
     // lain seperti ANGGOTA/USERS/piutang/voucher yang tidak berubah),
     // agar load halaman berikutnya cepat (tidak baca ulang dari nol).
     var extVoucherKey = 'voucher_' + conf.spreadsheetId + '_' + (conf.sheetName || 'Voucher');
-    patchCacheList_(extVoucherKey, 43200, function (list) {
+    patchVoucherCacheCompact_(extVoucherKey, 43200, function (list) {
       var s = {};
       redeemedKodes.forEach(function (k) { s[String(k || '').trim().replace(/^'/, '').replace(/^0+/, '')] = true; });
       list.forEach(function (item) {
