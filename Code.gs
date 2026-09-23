@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.10';
+var APP_VERSION = '2.0.11';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -682,7 +682,7 @@ function readVoucherSheet_(spreadsheetId, sheetName, normalizeFn) {
       if (String(obj[headers[0] || 'Kode']).trim() === '') return;
       list.push(normalizeFn(obj));
     });
-    cachePutBig_(cacheKey, list, 3600);
+    cachePutBig_(cacheKey, list, 43200);
     return { ok: true, message: 'Data voucher dimuat dari ' + sheetName + '.', list: list };
   } catch (e) {
     var m = String(e.message || '');
@@ -4078,7 +4078,7 @@ function redeemVoucher(data) {
     // lain seperti ANGGOTA/USERS/piutang/voucher yang tidak berubah),
     // agar load halaman berikutnya cepat (tidak baca ulang dari nol).
     var extVoucherKey = 'voucher_' + conf.spreadsheetId + '_' + (conf.sheetName || 'Voucher');
-    patchCacheList_(extVoucherKey, 3600, function (list) {
+    patchCacheList_(extVoucherKey, 43200, function (list) {
       var s = {};
       redeemedKodes.forEach(function (k) { s[String(k || '').trim().replace(/^'/, '').replace(/^0+/, '')] = true; });
       list.forEach(function (item) {
