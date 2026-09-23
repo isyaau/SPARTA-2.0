@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.4';
+var APP_VERSION = '2.0.5';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -2531,7 +2531,7 @@ function catatPiutangKaryawanExt(data, internal) {
     var mirK = mirrorAppendRows_('karyawan', 'piutang', KOLOM_PIUTANG_KARYAWAN_EXT, [valuesK]);
     if (mirK.length) patchPiutangCacheAppend_('karyawan', mirK[0]);
     perf_('catatK4 append+mirror+patch', _tK0);
-    return { ok: true, message: 'Kredit karyawan ' + idSystem + ' tercatat. Nota: ' + notaLengkap, ID: idSystem };
+    return { ok: true, message: 'Kredit karyawan ' + idSystem + ' tercatat. Nota: ' + notaLengkap, ID: idSystem, ms: Date.now() - _tK0 };
   } catch (e) {
     return getErrorObj_('Gagal mencatat kredit karyawan: ' + e.message);
   } finally {
@@ -2797,7 +2797,7 @@ function catatPiutangAnggotaExt(data, internal) {
     var mirA = mirrorAppendRows_('anggota', 'piutang', KOLOM_PIUTANG_ANGGOTA_EXT, [valuesA]);
     if (mirA.length) patchPiutangCacheAppend_('anggota', mirA[0]);
     perf_('catatA4 append+mirror+patch', _tA0);
-    return { ok: true, message: 'Kredit anggota ' + idSystem + ' tercatat. Nota: ' + notaLengkap, ID: idSystem };
+    return { ok: true, message: 'Kredit anggota ' + idSystem + ' tercatat. Nota: ' + notaLengkap, ID: idSystem, ms: Date.now() - _tA0 };
   } catch (e) {
     return getErrorObj_('Gagal mencatat kredit anggota: ' + e.message);
   } finally {
@@ -3907,11 +3907,13 @@ function redeemVoucher(data) {
     } catch (e) {}
     perf_('redeem7 patchCache+remove', _seg);
     perf_('redeem TOTAL', _tStart);
-    return {
+return {
       ok: true,
       message: redeemed.length + ' voucher diredeem.' + (skipped.length ? ' Dilewati (bukan Active): ' + skipped.join(', ') + '.' : '') + piutangMsg + mutasiMsg,
       piutangId: piutangId,
-      struk: struk
+      piutangNominal: piutangNominal,
+      struk: struk,
+      ms: Date.now() - _tStart
     };
   } catch (e) {
     return getErrorObj_('Gagal redeem voucher: ' + e.message);
