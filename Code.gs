@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.0';
+var APP_VERSION = '2.0.1';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -507,6 +507,31 @@ function getAnggotaCache_() { return getCacheRows_(CACHE_DEF.ANGGOTA, getAnggota
 function getPiutangCache_() { return getCacheRows_(CACHE_DEF.PIUTANG, getPiutangList); }
 function getTrxCache_() { return getCacheRows_(CACHE_DEF.TRX, getRedeemList); }
 
+/** Baca objek dari ScriptCache (JSON) tanpa memuat ke MEM_CACHE_. */
+function getCacheObj_(key) {
+  var hit = null;
+  try { hit = CacheService.getScriptCache().get(key); } catch (e) {}
+  if (!hit) return null;
+  try { return JSON.parse(hit); } catch (e) { return null; }
+}
+
+/** Simpan objek ke ScriptCache (JSON). */
+function putCacheObj_(key, obj, ttl) {
+  try { CacheService.getScriptCache().put(key, JSON.stringify(obj), ttl || 900); } catch (e) {}
+}
+
+/**
+ * Perbaiki isi list pada cache secara in-place (tanpa baca ulang sheet).
+ * Dipakai agar hasil transaksi langsung tercermin di cache, sehingga
+ * load halaman berikutnya tidak perlu membaca spreadsheet dari nol.
+ */
+function patchCacheList_(key, ttl, patchFn) {
+  var list = getCacheObj_(key);
+  if (!Array.isArray(list)) return;
+  patchFn(list);
+  putCacheObj_(key, list, ttl);
+}
+
 /** ------------------------------------------------------------------ */
 /** PENGATURAN                                                         */
 /** ------------------------------------------------------------------ */
@@ -844,6 +869,35 @@ function mirrorAppendRow_(kind, table, headers, values) {
   sheet.appendRow(row);
 }
 
+/**
+ * Tambah banyak baris ke sheet mirror SPARTA dalam satu setValues.
+ * Mengembalikan array objek baris mentah (dengan kunci header + Row) yang
+ * baru ditulis, untuk keperluan patch cache mirror secara in-place.
+ */
+function mirrorAppendRows_(kind, table, headers, valuesList) {
+  var sheet = getSpartaMirrorSheet_(kind, table);
+  if (!sheet || !valuesList || !valuesList.length) return [];
+  var dstHeaders = sheet.getLastRow() > 0
+    ? sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); })
+    : [];
+  if (!dstHeaders.length) return [];
+  var startRow = Math.max(sheet.getLastRow(), 1) + 1;
+  var matrix = valuesList.map(function (values) {
+    return dstHeaders.map(function (h) {
+      var idx = headers.indexOf(h);
+      return idx > -1 ? (values[idx] === undefined || values[idx] === null ? '' : values[idx]) : '';
+    });
+  });
+  sheet.getRange(startRow, 1, matrix.length, dstHeaders.length).setValues(matrix);
+  var out = [];
+  for (var i = 0; i < matrix.length; i++) {
+    var obj = { Row: startRow + i };
+    dstHeaders.forEach(function (h, c) { obj[h] = matrix[i][c]; });
+    out.push(obj);
+  }
+  return out;
+}
+
 /** Perbarui satu kolom (by match) pada sheet mirror SPARTA. */
 function mirrorSetCell_(kind, table, matchHeader, matchValue, setHeader, setValue) {
   var sheet = getSpartaMirrorSheet_(kind, table);
@@ -865,6 +919,83 @@ function mirrorSetCell_(kind, table, matchHeader, matchValue, setHeader, setValu
       return;
     }
   }
+}
+
+/**
+ * Tulis nilai pada satu kolom untuk banyak baris; baris yang berurutan
+ * digabung menjadi satu panggilan setValues (hemat round-trip API).
+ * `rowValues` adalah objek: nomor baris absolut -> nilai.
+ */
+function setColBatch_(sheet, col, rowValues) {
+  if (!sheet || col < 1) return;
+  var writes = {};
+  Object.keys(rowValues || {}).forEach(function (r) {
+    var v = rowValues[r];
+    if (v === undefined || v === null) return;
+    writes[Number(r)] = v;
+  });
+  var rows = Object.keys(writes).map(Number).sort(function (a, b) { return a - b; });
+  var run = [];
+  var commit = function () {
+    if (!run.length) return;
+    var vals = run.map(function (r) { return [writes[r]]; });
+    sheet.getRange(run[0], col, run.length, 1).setValues(vals);
+    run = [];
+  };
+  for (var i = 0; i < rows.length; i++) {
+    if (run.length && rows[i] !== run[run.length - 1] + 1) commit();
+    run.push(rows[i]);
+  }
+  commit();
+}
+
+/**
+ * Perbarui satu kolom (dengan pencocokan kode) pada sheet mirror SPARTA
+ * secara batch: 1 scan kolom kunci + setValues per kelompok baris berurutan,
+ * lalu patch cache mirror yang bersangkutan (tanpa baca ulang).
+ */
+function mirrorSetCellsBulk_(kind, table, matchHeader, setHeader, kodeList, setValue) {
+  try {
+    var sheet = getSpartaMirrorSheet_(kind, table);
+    if (!sheet || !kodeList.length) return;
+    var dstHeaders = sheet.getLastRow() > 0
+      ? sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); })
+      : [];
+    if (!dstHeaders.length) return;
+    var matchCol = dstHeaders.indexOf(matchHeader) + 1;
+    var setCol = dstHeaders.indexOf(setHeader) + 1;
+    if (matchCol < 1 || setCol < 1) return;
+    var lastRow = Math.max(sheet.getLastRow(), 1);
+    var isKode = isKodeTextCol_(matchHeader);
+    var ids = lastRow > 1 ? sheet.getRange(2, matchCol, lastRow - 1, 1).getValues() : [];
+    var rowByKey = {};
+    for (var i = 0; i < ids.length; i++) {
+      var raw = String(ids[i][0] === undefined || ids[i][0] === null ? '' : ids[i][0]).trim().replace(/^'/, '');
+      if (!raw) continue;
+      rowByKey[isKode ? raw.replace(/^0+/, '') : raw] = i + 2;
+    }
+    var rowValues = {};
+    kodeList.forEach(function (kode) {
+      var k = String(kode || '').trim().replace(/^'/, '');
+      if (!k) return;
+      var key = isKode ? k.replace(/^0+/, '') : k;
+      if (rowByKey[key] !== undefined) rowValues[rowByKey[key]] = setValue;
+    });
+    setColBatch_(sheet, setCol, rowValues);
+    patchMirrorCacheStatus_(kind, table, matchHeader, setHeader, kodeList, setValue);
+  } catch (e) {}
+}
+
+/** Patch status pada cache mirror list agar konsisten dengan sheet (tanpa baca ulang sheet). */
+function patchMirrorCacheStatus_(kind, table, matchHeader, setHeader, kodeList, setValue) {
+  patchCacheList_(mirrorCacheKey_(kind, table), 300, function (list) {
+    var set = {};
+    kodeList.forEach(function (k) { set[String(k || '').trim().replace(/^'/, '').replace(/^0+/, '')] = true; });
+    list.forEach(function (item) {
+      var code = String(item[matchHeader] || '').trim().replace(/^'/, '').replace(/^0+/, '');
+      if (set[code]) item[setHeader] = setValue;
+    });
+  });
 }
 
 /** Nama kolom mirror untuk tabel (voucher/piutang/mutasi/notifikasi) per jenis. */
@@ -2196,6 +2327,24 @@ function clearPiutangKaryawanCache_() {
   clearMirrorCache_('karyawan', 'piutang');
 }
 
+/** Patch cache mirror piutang (tambah baris kredit baru yang baru dicatat). */
+function patchPiutangCacheAppend_(kind, rawRow) {
+  var norm = kind === 'karyawan' ? normalizePiutangKaryawan_ : normalizePiutangAnggota_;
+  patchCacheList_(mirrorCacheKey_(kind, 'piutang'), 300, function (list) {
+    var n = norm(rawRow);
+    if (n) list.unshift(n);
+  });
+}
+
+/** Patch cache mirror piutang: isi kolom Verifikasi untuk ID yang bersangkutan. */
+function patchPiutangVerifikasiCache_(kind, idSystem, link) {
+  patchCacheList_(mirrorCacheKey_(kind, 'piutang'), 300, function (list) {
+    list.forEach(function (p) {
+      if (String(p.IDSystem || '').trim() === String(idSystem || '').trim()) p.Verifikasi = link;
+    });
+  });
+}
+
 function normalizePiutangKaryawan_(p) {
   var nominal = cleanNum_(p.Nominal);
   return {
@@ -2301,8 +2450,8 @@ function catatPiutangKaryawanExt(data) {
     });
     var valuesK = KOLOM_PIUTANG_KARYAWAN_EXT.map(function (h) { return row[h] === undefined ? '' : row[h]; });
     sheet.appendRow(valuesK);
-    mirrorAppendRow_('karyawan', 'piutang', KOLOM_PIUTANG_KARYAWAN_EXT, valuesK);
-    clearPiutangKaryawanCache_();
+    var mirK = mirrorAppendRows_('karyawan', 'piutang', KOLOM_PIUTANG_KARYAWAN_EXT, [valuesK]);
+    if (mirK.length) patchPiutangCacheAppend_('karyawan', mirK[0]);
     return { ok: true, message: 'Kredit karyawan ' + idSystem + ' tercatat. Nota: ' + notaLengkap, ID: idSystem };
   } catch (e) {
     return getErrorObj_('Gagal mencatat kredit karyawan: ' + e.message);
@@ -2388,7 +2537,7 @@ function uploadBuktiPiutangKaryawan(data) {
     var vCol = headers.indexOf('Verifikasi') + 1;
     if (vCol >= 1) sheet.getRange(rowIndex, vCol).setValue(link);
     mirrorSetCell_('karyawan', 'piutang', 'ID System', idSystem, 'Verifikasi', link);
-    clearPiutangKaryawanCache_();
+    patchPiutangVerifikasiCache_('karyawan', idSystem, link);
     return { ok: true, message: 'Bukti foto tersimpan.', link: link };
   } catch (e) {
     return getErrorObj_('Gagal menyimpan bukti foto: ' + e.message);
@@ -2556,9 +2705,8 @@ function catatPiutangAnggotaExt(data) {
     });
     var valuesA = KOLOM_PIUTANG_ANGGOTA_EXT.map(function (h) { return row[h] === undefined ? '' : row[h]; });
     sheet.appendRow(valuesA);
-    mirrorAppendRow_('anggota', 'piutang', KOLOM_PIUTANG_ANGGOTA_EXT, valuesA);
-    clearPiutangAnggotaCache_();
-    clearDataCache_();
+    var mirA = mirrorAppendRows_('anggota', 'piutang', KOLOM_PIUTANG_ANGGOTA_EXT, [valuesA]);
+    if (mirA.length) patchPiutangCacheAppend_('anggota', mirA[0]);
     return { ok: true, message: 'Kredit anggota ' + idSystem + ' tercatat. Nota: ' + notaLengkap, ID: idSystem };
   } catch (e) {
     return getErrorObj_('Gagal mencatat kredit anggota: ' + e.message);
@@ -2601,7 +2749,7 @@ function uploadBuktiPiutangAnggota(data) {
     var vCol = headers.indexOf('Verifikasi') + 1;
     if (vCol >= 1) sheet.getRange(rowIndex, vCol).setValue(link);
     mirrorSetCell_('anggota', 'piutang', 'ID System', idSystem, 'Verifikasi', link);
-    clearPiutangAnggotaCache_();
+    patchPiutangVerifikasiCache_('anggota', idSystem, link);
     return { ok: true, message: 'Bukti foto tersimpan.', link: link };
   } catch (e) {
     return getErrorObj_('Gagal menyimpan bukti foto: ' + e.message);
@@ -2647,7 +2795,11 @@ function setStatusNotif_(kind, idSystem) {
   var snCol = headers.indexOf('Status Notif') + 1;
   if (snCol >= 1) sheet.getRange(rowIndex, snCol).setValue('Terkirim');
   mirrorSetCell_(kind, 'piutang', 'ID System', idSystem, 'Status Notif', 'Terkirim');
-  (kind === 'karyawan' ? clearPiutangKaryawanCache_ : clearPiutangAnggotaCache_)();
+  patchCacheList_(mirrorCacheKey_(kind, 'piutang'), 300, function (list) {
+    list.forEach(function (p) {
+      if (String(p.IDSystem || '').trim() === String(idSystem || '').trim()) p.StatusNotif = 'Terkirim';
+    });
+  });
 }
 
 function formatRupiah_(n) {
@@ -3238,10 +3390,14 @@ function getVouchersPemegang(data) {
   };
 }
 
-/** Tulis baris mutasi baru ke sheet Mutasi eksternal (MyKopinka / HRIS). */
-function appendMutasiRedeem_(kind, u, info, tanggal, nota, piutangId) {
+/**
+ * Tulis semua baris mutasi baru ke sheet Mutasi eksternal (MyKopinka / HRIS)
+ * dalam satu setValues, satu baris mirror SPARTA (setValues), lalu patch
+ * cache mirror mutasi supaya load berikutnya langsung segar tanpa baca ulang.
+ */
+function appendMutasiRedeemBulk_(kind, u, items, tanggal, nota, piutangId) {
   var conf = getMutasiConfig_(kind);
-  if (!conf.spreadsheetId) return { ok: true, message: 'Spreadsheet mutasi belum dikonfigurasi (dilewati).' };
+  if (!conf.spreadsheetId) return { ok: true, message: 'Spreadsheet mutasi belum dikonfigurasi (dilewati).', count: 0 };
   try {
     var ss = SpreadsheetApp.openById(conf.spreadsheetId);
     var sheet = ss.getSheetByName(conf.sheetName) || ss.getSheets()[0];
@@ -3252,11 +3408,6 @@ function appendMutasiRedeem_(kind, u, info, tanggal, nota, piutangId) {
     if (!headers.length) return getErrorObj_('Sheet mutasi masih kosong. Isi baris header terlebih dahulu.');
 
     var waktu = Utilities.formatDate(new Date(), getTimeZone_(), 'yyyy-MM-dd HH:mm:ss');
-    var nama = String(info.v.Nama || '');
-    var no = String(info.no || '');
-    var kelompok = kind === 'karyawan'
-      ? String(info.v.Bagian || info.v.Unit || '')
-      : String(info.v.Kelompok || '');
 
     var find = function (candidates) {
       for (var i = 0; i < candidates.length; i++) {
@@ -3277,23 +3428,42 @@ function appendMutasiRedeem_(kind, u, info, tanggal, nota, piutangId) {
     var idxKelompok = find(kind === 'karyawan' ? ['Bagian', 'Unit', 'Kelompok'] : ['Kelompok']);
     var idxPiutang = find(['ID Piutang', 'Piutang', 'IDPiutang']);
 
-    var row = [];
-    for (var c = 0; c < headers.length; c++) row.push('');
-    if (idxWaktu > -1) row[idxWaktu] = waktu;
-    if (idxId > -1) row[idxId] = String(info.idTrx || '');
-    if (idxNota > -1) row[idxNota] = String(nota || '');
-    if (idxKode > -1) row[idxKode] = "'" + String(info.kode || '');
-    if (idxToko > -1) row[idxToko] = getTokoSesi_(u);
-    if (idxPetugas > -1) row[idxPetugas] = String(u.Username || '');
-    if (idxNilai > -1) row[idxNilai] = cleanNum_(info.v.Nilai);
-    if (idxNama > -1) row[idxNama] = nama;
-    if (idxNo > -1) row[idxNo] = kodeTeks_(no);
-    if (idxKelompok > -1) row[idxKelompok] = kelompok;
-    if (idxPiutang > -1) row[idxPiutang] = String(piutangId || '');
+    var norm = kind === 'karyawan' ? normalizeMutasiKaryawan_ : normalizeMutasiAnggota_;
+    var rows = items.map(function (info) {
+      var nama = String(info.v.Nama || '');
+      var no = String(info.no || '');
+      var kelompok = kind === 'karyawan'
+        ? String(info.v.Bagian || info.v.Unit || '')
+        : String(info.v.Kelompok || '');
+      var row = [];
+      for (var c = 0; c < headers.length; c++) row.push('');
+      if (idxWaktu > -1) row[idxWaktu] = waktu;
+      if (idxId > -1) row[idxId] = String(info.idTrx || '');
+      if (idxNota > -1) row[idxNota] = String(nota || '');
+      if (idxKode > -1) row[idxKode] = "'" + String(info.kode || '');
+      if (idxToko > -1) row[idxToko] = getTokoSesi_(u);
+      if (idxPetugas > -1) row[idxPetugas] = String(u.Username || '');
+      if (idxNilai > -1) row[idxNilai] = cleanNum_(info.v.Nilai);
+      if (idxNama > -1) row[idxNama] = nama;
+      if (idxNo > -1) row[idxNo] = kodeTeks_(no);
+      if (idxKelompok > -1) row[idxKelompok] = kelompok;
+      if (idxPiutang > -1) row[idxPiutang] = String(piutangId || '');
+      return row;
+    });
 
-    sheet.appendRow(row);
-    mirrorAppendRow_(kind, 'mutasi', headers, row);
-    return { ok: true, message: 'Mutasi ' + (kind === 'karyawan' ? 'HRIS' : 'MyKOPINKA') + ' ' + info.kode + ' tersimpan.' };
+    var startRow = Math.max(sheet.getLastRow(), 1);
+    sheet.getRange(startRow + 1, 1, rows.length, headers.length).setValues(rows);
+
+    var mirrorRows = mirrorAppendRows_(kind, 'mutasi', headers, rows);
+    if (mirrorRows.length) {
+      patchCacheList_(mirrorCacheKey_(kind, 'mutasi'), 300, function (list) {
+        mirrorRows.forEach(function (rawRow) {
+          var n = norm(rawRow);
+          if (n) list.push(n);
+        });
+      });
+    }
+    return { ok: true, message: 'Mutasi ' + (kind === 'karyawan' ? 'HRIS' : 'MyKOPINKA') + ' tersimpan (' + rows.length + ').', count: rows.length };
   } catch (e) {
     return getErrorObj_('Gagal menulis mutasi: ' + e.message);
   }
@@ -3492,9 +3662,11 @@ function redeemVoucher(data) {
       notaLengkap = kodeToko + yy + mmdd + (nota4 ? pad_(cleanNum_(nota4), 4) : pad_(0, 4));
     }
 
+    var kind = isKaryawan ? 'karyawan' : 'anggota';
     var redeemed = [];
     var skipped = [];
-    var idTrxList = [];
+    var extRowValues = {};
+    var redeemedKodes = [];
     kodes.forEach(function (kode) {
       var v = null;
       for (var i = 0; i < res.list.length; i++) {
@@ -3503,16 +3675,29 @@ function redeemVoucher(data) {
       if (!v || String(v.Status) !== 'Active') { skipped.push(kode); return; }
       if (isKaryawan && !nipMatch_(String(v.NIP || ''), String(data.no || ''))) { skipped.push(kode); return; }
       var row = Number(v.Row) || 0;
-      if (row > 0) {
-        sheetV.getRange(row, statusCol).setValue('Used');
-        mirrorSetCell_(isKaryawan ? 'karyawan' : 'anggota', 'voucher', 'Kode', kode, 'Status', 'Used');
-      }
+      if (row > 0) extRowValues[row] = 'Used';
+      redeemedKodes.push(kode);
       var no = isKaryawan ? String(v.NIP || data.no || '') : String(v.NoAnggota || data.no || '');
-      var idTrx = nextMutasiId_(isKaryawan ? 'karyawan' : 'anggota', 'RVP', tanggal);
-      idTrxList.push(idTrx);
-      redeemed.push({ v: v, kode: kode, no: no, idTrx: idTrx });
+      redeemed.push({ v: v, kode: kode, no: no });
     });
     if (!redeemed.length) return getErrorObj_('Tidak ada voucher Active yang bisa diredeem.' + (skipped.length ? ' Diblokir: ' + skipped.join(', ') : ''));
+
+    // Perbarui status voucher eksternal & mirror SPARTA secara batch (1-2 setValues).
+    setColBatch_(sheetV, statusCol, extRowValues);
+    mirrorSetCellsBulk_(kind, 'voucher', 'Kode', 'Status', redeemedKodes, 'Used');
+
+    // ID mutasi dihitung sekali lalu dinaikkan berurutan (hindari N kali scan sheet mutasi).
+    var idTrxList = [];
+    var firstId = nextMutasiId_(kind, 'RVP', tanggal);
+    var mt = String(firstId).match(/^(.*?)(\d+)$/);
+    var baseTrx = mt ? mt[1] : firstId;
+    var baseSeq = mt ? parseInt(mt[2], 10) : 1;
+    var padSize = mt ? Math.max(mt[2].length, 4) : 4;
+    redeemed.forEach(function (item, idx) {
+      var idTrx = baseTrx + pad_(baseSeq + idx, padSize);
+      item.idTrx = idTrx;
+      idTrxList.push(idTrx);
+    });
 
     var piutangMsg = '';
     var piutangId = '';
@@ -3551,12 +3736,8 @@ function redeemVoucher(data) {
     }
 
     var mutasiMsg = '';
-    var mutasiFail = [];
-    redeemed.forEach(function (item) {
-      var m = appendMutasiRedeem_(isKaryawan ? 'karyawan' : 'anggota', u, item, tanggal, notaLengkap, piutangId);
-      if (!m.ok) mutasiFail.push(item.kode);
-    });
-    if (mutasiFail.length) mutasiMsg = ' Mutasi gagal untuk: ' + mutasiFail.join(', ') + '.';
+    var mRes = appendMutasiRedeemBulk_(kind, u, redeemed, tanggal, notaLengkap, piutangId);
+    if (!mRes.ok) mutasiMsg = ' Mutasi gagal: ' + mRes.message + '.';
 
     var items = redeemed.map(function (item) {
       return { Kode: item.kode, Label: String(item.v.Label || ''), Nilai: cleanNum_(item.v.Nilai) };
@@ -3597,8 +3778,25 @@ function redeemVoucher(data) {
     struk.waTel = wa.ok ? wa.tel : '';
     struk.waMsg = wa.ok ? wa.pesan : '';
 
-    clearDataCache_();
-    clearVoucherCache();
+    // Segarkan cache hasil transaksi secara in-place (tanpa membuang cache
+    // lain seperti ANGGOTA/USERS/piutang/voucher yang tidak berubah),
+    // agar load halaman berikutnya cepat (tidak baca ulang dari nol).
+    var extVoucherKey = 'voucher_' + conf.spreadsheetId + '_' + (conf.sheetName || 'Voucher');
+    patchCacheList_(extVoucherKey, 900, function (list) {
+      var s = {};
+      redeemedKodes.forEach(function (k) { s[String(k || '').trim().replace(/^'/, '').replace(/^0+/, '')] = true; });
+      list.forEach(function (item) {
+        var c = String(item.Kode || '').trim().replace(/^'/, '').replace(/^0+/, '');
+        if (s[c]) item.Status = 'Used';
+      });
+    });
+    try {
+      delete MEM_CACHE_[extVoucherKey];
+      delete MEM_CACHE_[CACHE_DEF.TRX.key];
+      var c2 = CacheService.getScriptCache();
+      c2.remove(CACHE_DEF.TRX.key);
+      c2.remove('vstats_' + VOUCHER_SPREADSHEET_ID);
+    } catch (e) {}
     return {
       ok: true,
       message: redeemed.length + ' voucher diredeem.' + (skipped.length ? ' Dilewati (bukan Active): ' + skipped.join(', ') + '.' : '') + piutangMsg + mutasiMsg,

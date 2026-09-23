@@ -300,7 +300,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.0</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.1</div>
       </div>
     </div>
   </div>
@@ -332,7 +332,7 @@
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-      <small class="d-block text-center text-white-50 mt-2">v2.0.0</small>
+      <small class="d-block text-center text-white-50 mt-2">v2.0.1</small>
     </div>
   </aside>
 
@@ -2393,6 +2393,7 @@
 
   function refreshAll() {
     busy(true, 'Menyegarkan seluruh data...');
+    _optLoaded = false;
     google.script.run
       .withSuccessHandler(function () { loadCore(); warmWaData(); })
       .withFailureHandler(function () { loadCore(); warmWaData(); })
@@ -2545,9 +2546,12 @@
     if (name !== 'dashboard' && routLoad[name]) routLoad[name](true);
   }
 
-  function loadOptions() {
+  var _optLoaded = false;
+  function loadOptions(force) {
+    if (!force && _optLoaded) return;
     google.script.run
       .withSuccessHandler(function (list) {
+        _optLoaded = true;
         var map = {};
         list.forEach(function (a) { map[String(a.NoAnggota)] = a.Nama; });
         STATE.anggotaMap = map;
