@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.14';
+var APP_VERSION = '2.0.15';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -1061,23 +1061,33 @@ function appendRowsExt_(spreadsheetId, sheetName, valuesList) {
   sheetsApiFetch_(spreadsheetId, '/values/' + encodeURIComponent(sheetRefA1_(sheetName) + '!A1') + ':append?valueInputOption=USER_ENTERED', { values: valuesList }, 'POST');
 }
 
-/** Panggilan umum ke Google Sheets API v4 via UrlFetchApp (tanpa dependensi
- *  Advanced Service di manifes, agar kompatibel clasp). */
-function sheetsApiFetch_(spreadsheetId, path, payload, method) {
-  var token = ScriptApp.getOAuthToken();
-  var params = {
-    method: method || 'GET',
-    headers: { Authorization: 'Bearer ' + token },
-    contentType: 'application/json',
-    muteHttpExceptions: true
-  };
-  if (payload !== undefined && payload !== null) params.payload = JSON.stringify(payload);
-  var url = 'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(spreadsheetId) + path;
-  var resp = UrlFetchApp.fetch(url, params);
-  var code = resp.getResponseCode();
-  var body = resp.getContentText();
-  if (code < 200 || code >= 300) throw new Error('Sheets API ' + code + ': ' + String(body).slice(0, 300));
-  return body ? JSON.parse(body) : {};
+/** Panggilan umum ke Google Sheets API v4 via Advanced Service (tidak
+ *  butuh API Sheets di-enable manual di GCP project). */
+function sheetsApiFetch_(spreadsheetId, path, payload) {
+  var p = String(path || '');
+  if (p.indexOf('/values:batchUpdate') === 0) {
+    return Sheets.Spreadsheets.Values.batchUpdate({
+      valueInputOption: (payload && payload.valueInputOption) || 'USER_ENTERED',
+      data: (payload && payload.data) || []
+    }, spreadsheetId);
+  }
+  var after = p.charAt(0) === '/' ? p.slice(1) : p;
+  after = after.slice('values/'.length);
+  var appendQ = after.indexOf(':append');
+  var isAppend = appendQ >= 0;
+  var q = after.indexOf('?');
+  var rangeRaw = isAppend ? after.slice(0, appendQ) : after.slice(0, q >= 0 ? q : after.length);
+  var range = decodeURIComponent(rangeRaw);
+  var query = q >= 0 ? after.slice(q) : '';
+  if (isAppend) {
+    Sheets.Spreadsheets.Values.append({ values: (payload && payload.values) || [] }, spreadsheetId, range, {
+      valueInputOption: (payload && payload.valueInputOption) || 'USER_ENTERED'
+    });
+    return {};
+  }
+  var vr = query.indexOf('valueRenderOption=UNFORMATTED_VALUE') >= 0 ? 'UNFORMATTED_VALUE'
+    : query.indexOf('valueRenderOption=FORMATTED_VALUE') >= 0 ? 'FORMATTED_VALUE' : 'FORMATTED_VALUE';
+  return Sheets.Spreadsheets.Values.get(spreadsheetId, range, { valueRenderOption: vr });
 }
 
 /** Deteksi izin Sheets REST API (script.external_request) sekali per eksekusi.
