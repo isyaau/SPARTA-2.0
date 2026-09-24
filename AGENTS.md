@@ -28,14 +28,15 @@ git push origin main
 
 # deploy (proyek aktif = copy workbook; .clasp.json sudah diarahkan ke scriptId proyek tersebut)
 cmd /c "clasp push -f"
-cmd /c "clasp deploy -i AKfycbyAL4LeawoztLWI7ME_UrTSmuHIJTqzuFnkLdxCbKL4jYtbOSPsQPwUr0pc7PpzU8fo -d rilis"
+cmd /c "clasp deploy -d v2.0.24"
 ```
 
 Setara dengan `npm run deploy` (butuh clasp global; `node_modules` tidak diinstal).
 
-## Keadaan terakhir (v2.0.22)
+## Keadaan terakhir (v2.0.24)
 
-- Target deploy = **proyek salinan** (scriptId di `.clasp.json`, deployment `AKfycby...`). Deployment lama read-only `AKfycbw4o... @HEAD` menjalankan kode terbaru juga.
+- Target deploy = **proyek salinan** (scriptId `1dcgyO1KVaynzlDxXrLA5UqLLBx9KI5o-iMP9d3mjylclcoR0kTaTkD1h` di `.clasp.json`). Deployment lama `AKfycbyAL4...` sudah dihapus; release v2.0.24 dibuat deployment baru `AKfycbzY4u5... @20`. Deployment read-only @HEAD `AKfycbw3Ax...` menjalankan kode terbaru juga.
+- **Menu Laporan Voucher Anggota** (v2.0.24): halaman rekap voucher per anggota (NoAnggota/Nama/NIP/Kelompok + jumlah used/active/expire/active+expire + nilai rupiah used/active/expired) dari mirror sheet voucher anggota + master anggota eksternal; filter cari & kelompok, pager, export XLSX/CSV, cetak. Backend `getLaporanVoucherAnggota` + `statusVoucherRekap_` — status diawali `expir` dipetakan ke expired.
 - Jalur cepat **Advanced Sheets service** aktif (`probeApi:true`); konteks web app TIDAK punya `script.external_request`, jadi UrlFetchApp TIDAK dipakai — semua baca/tulis external & mirror lewat `Sheets.*`. `sheetsApiFetch_()` adalah wrapper ke `Sheets.Spreadsheets.Values.get/append/batchUpdate`.
 - **Cache voucher eksternal format kompak** `{h, v}` (`voucherCacheDecode_`, `patchVoucherCacheCompact_`); format lama array-objek dikonversi ke kompak saat patch. Isolasi hanya key `voucher_<id>_<sheet>`; cache lain tetap array-objek. Hit memaksa decode+normalisasi ulang (sesiRead ~1,2s tak turun; yang menang: patchCache 2970→1832ms).
 - **Batch tulis mirror lokal**: `mirrorBatchBegin_`/`mirrorBatchPush_`/`mirrorBatchCommit_` menggabungkan semua tulis `Sheets.*` ke workbook SPARTA (voucher mirror cell via `mirrorSetCellsBulk_`, piutang & mutasi append via `mirrorAppendRows_`) menjadi **1 `Values.batchUpdate`** di akhir `redeemVoucher` (dengan fallback `setColBatch_`/`setValues` dan commit pengaman di `finally`). Bila batch tidak aktif (probe false), tiap fungsi memakai jalur lamanya sendiri.
