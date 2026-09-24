@@ -311,7 +311,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.27</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.28</div>
       </div>
     </div>
   </div>
@@ -346,7 +346,7 @@
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.27</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.28</small>
     </div>
   </aside>
 
@@ -1346,9 +1346,15 @@
 
   <!-- ===================== LAPORAN VOUCHER ANGGOTA ===================== -->
   <section id="page-laporan-voucher" class="page">
+    <div class="d-flex justify-content-end mb-3">
+      <div class="btn-group btn-group-sm" role="group" aria-label="Jenis voucher">
+        <button type="button" class="btn btn-outline-primary active" data-kind="anggota" onclick="sekindSet('lv', this)">Anggota</button>
+        <button type="button" class="btn btn-outline-primary" data-kind="karyawan" onclick="sekindSet('lv', this)">Karyawan</button>
+      </div>
+    </div>
     <div class="dash-head">
       <div>
-        <h4><i class="bi bi-ticket-detailed me-1"></i>Laporan Voucher Anggota</h4>
+        <h4><i class="bi bi-ticket-detailed me-1"></i>Laporan Voucher <span id="lv-judul-header">Anggota</span></h4>
         <p>Rekapitulasi lembar dan nilai voucher per anggota berdasarkan status used / active / expired.</p>
       </div>
     </div>
@@ -1358,7 +1364,7 @@
         <h6 class="fw-bold mb-3"><i class="bi bi-funnel me-1"></i>Filter Laporan</h6>
         <div class="row g-3 align-items-end">
           <div class="col-md-5">
-            <label class="form-label small text-muted" for="lv-cari">Cari Nama / No Anggota / NIP / Kelompok</label>
+            <label class="form-label small text-muted" for="lv-cari" id="lv-cari-label">Cari Nama / No Anggota / NIP / Kelompok</label>
             <input id="lv-cari" class="form-control" placeholder="Ketik kata kunci..." oninput="searchLaporanVoucher()" autocomplete="off">
           </div>
           <div class="col-md-3">
@@ -1425,10 +1431,10 @@
             <thead class="table-light">
               <tr>
                 <th rowspan="2" class="small text-uppercase text-muted">NO</th>
-                <th rowspan="2" class="small text-uppercase text-muted">No. Anggota</th>
+                <th rowspan="2" class="small text-uppercase text-muted" id="th-lv-id">No. Anggota</th>
                 <th rowspan="2" class="small text-uppercase text-muted">Nama</th>
-                <th rowspan="2" class="small text-uppercase text-muted">NIP</th>
-                <th rowspan="2" class="small text-uppercase text-muted">Kelompok</th>
+                <th rowspan="2" class="small text-uppercase text-muted" id="th-lv-nip">NIP</th>
+                <th rowspan="2" class="small text-uppercase text-muted" id="th-lv-grup">Kelompok</th>
                 <th colspan="4" class="small text-uppercase text-muted text-center">Status Voucher (Jumlah)</th>
                 <th colspan="3" class="small text-uppercase text-muted text-center">Nilai Voucher (Rupiah)</th>
               </tr>
@@ -1453,9 +1459,15 @@
 
   <!-- ===================== LAPORAN PROGRAM WAJIB BELANJA ===================== -->
   <section id="page-laporan-wjb" class="page">
+    <div class="d-flex justify-content-end mb-3">
+      <div class="btn-group btn-group-sm" role="group" aria-label="Jenis voucher">
+        <button type="button" class="btn btn-outline-primary active" data-kind="anggota" onclick="sekindSet('wjb', this)">Anggota</button>
+        <button type="button" class="btn btn-outline-primary" data-kind="karyawan" onclick="sekindSet('wjb', this)">Karyawan</button>
+      </div>
+    </div>
     <div class="dash-head">
       <div>
-        <h4><i class="bi bi-cart-check me-1"></i>Laporan Program Wajib Belanja Anggota</h4>
+        <h4><i class="bi bi-cart-check me-1"></i>Laporan Program Wajib Belanja <span id="wjb-judul">Anggota</span></h4>
         <p>Rekapitulasi bulanan penerbitan &amp; realisasi voucher serta detail penggunaan per outlet.</p>
       </div>
     </div>
@@ -1478,7 +1490,7 @@
 
     <div class="card mb-4">
       <div class="card-body">
-        <h6 class="fw-bold text-center mb-0">LAPORAN PROGRAM WAJIB BELANJA ANGGOTA (PER <span id="wjb-per">-</span>)</h6>
+        <h6 class="fw-bold text-center mb-0">LAPORAN PROGRAM WAJIB BELANJA <span id="wjb-judul2">ANGGOTA</span> (PER <span id="wjb-per">-</span>)</h6>
         <div class="text-end small text-muted mt-1 mb-2" id="wjb-update"></div>
         <div class="table-responsive">
           <table class="table table-hover table-sm align-middle mb-0">
@@ -1537,6 +1549,12 @@
 
   <!-- ===================== AUDIT DATA REDEEM ===================== -->
   <section id="page-audit-redeem" class="page">
+    <div class="d-flex justify-content-end mb-3">
+      <div class="btn-group btn-group-sm" role="group" aria-label="Jenis voucher">
+        <button type="button" class="btn btn-outline-primary active" data-kind="anggota" onclick="sekindSet('ar', this)">Anggota</button>
+        <button type="button" class="btn btn-outline-primary" data-kind="karyawan" onclick="sekindSet('ar', this)">Karyawan</button>
+      </div>
+    </div>
     <div class="dash-head">
       <div>
         <h4><i class="bi bi-shield-exclamation me-1"></i>Audit Data Redeem</h4>
@@ -1600,7 +1618,7 @@
         <div class="table-responsive">
           <table class="table table-hover table-sm align-middle mb-0">
             <thead class="table-light">
-              <tr><th class="small text-muted">Kode</th><th class="small text-muted">No Anggota</th><th class="small text-muted">Nama</th><th class="small text-muted text-end">Nilai</th><th class="small text-muted">Aktif Mulai</th><th class="small text-muted">ExpDate</th></tr>
+              <tr><th class="small text-muted">Kode</th><th class="small text-muted"><span data-ar-id="1">No Anggota</span></th><th class="small text-muted">Nama</th><th class="small text-muted text-end">Nilai</th><th class="small text-muted">Aktif Mulai</th><th class="small text-muted">ExpDate</th></tr>
             </thead>
             <tbody id="tabel-ar-used"></tbody>
           </table>
@@ -1615,7 +1633,7 @@
         <div class="table-responsive">
           <table class="table table-hover table-sm align-middle mb-0">
             <thead class="table-light">
-              <tr><th class="small text-muted">Kode</th><th class="small text-muted">Waktu</th><th class="small text-muted">Toko</th><th class="small text-muted text-end">Nilai</th><th class="small text-muted">No Anggota</th><th class="small text-muted">Nama</th></tr>
+              <tr><th class="small text-muted">Kode</th><th class="small text-muted">Waktu</th><th class="small text-muted">Toko</th><th class="small text-muted text-end">Nilai</th><th class="small text-muted"><span data-ar-id="2">No Anggota</span></th><th class="small text-muted">Nama</th></tr>
             </thead>
             <tbody id="tabel-ar-unmatched"></tbody>
           </table>
@@ -1631,7 +1649,7 @@
             <div class="table-responsive">
               <table class="table table-hover table-sm align-middle mb-0">
                 <thead class="table-light">
-                  <tr><th class="small text-muted">Kode</th><th class="small text-muted">No Anggota</th><th class="small text-muted text-end">Nilai</th><th class="small text-muted">Status</th><th class="small text-muted text-end">Jml Mutasi</th></tr>
+                  <tr><th class="small text-muted">Kode</th><th class="small text-muted"><span data-ar-id="3">No Anggota</span></th><th class="small text-muted text-end">Nilai</th><th class="small text-muted">Status</th><th class="small text-muted text-end">Jml Mutasi</th></tr>
                 </thead>
                 <tbody id="tabel-ar-status"></tbody>
               </table>
@@ -1652,7 +1670,7 @@
             <div class="table-responsive">
               <table class="table table-hover table-sm align-middle mb-0">
                 <thead class="table-light">
-                  <tr><th class="small text-muted">Kode</th><th class="small text-muted">No Anggota</th><th class="small text-muted">Nama</th><th class="small text-muted text-end">Nilai</th><th class="small text-muted text-end">Jml Mutasi</th></tr>
+                  <tr><th class="small text-muted">Kode</th><th class="small text-muted"><span data-ar-id="4">No Anggota</span></th><th class="small text-muted">Nama</th><th class="small text-muted text-end">Nilai</th><th class="small text-muted text-end">Jml Mutasi</th></tr>
                 </thead>
                 <tbody id="tabel-ar-multi"></tbody>
               </table>
@@ -2281,9 +2299,12 @@
     laporanSub: 'anggota',
     lvAll: null,
     lvKey: '',
+    lvKind: 'anggota',
     wjbAll: null,
     wjbKey: '',
+    wjbKind: 'anggota',
     arAll: null,
+    arKind: 'anggota',
     rvKind: 'anggota',
     rpKind: 'anggota',
     bcastFilter: 'semua',
@@ -5342,15 +5363,32 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
     searchLaporanVoucher();
   }
 
+  function sekindSet(prefix, btn) {
+    var kind = btn.getAttribute('data-kind') === 'karyawan' ? 'karyawan' : 'anggota';
+    STATE[prefix + 'Kind'] = kind;
+    var grp = btn.closest('.btn-group');
+    if (grp) Array.prototype.forEach.call(grp.querySelectorAll('button'), function (b) {
+      if (b.getAttribute('data-kind') === kind) b.classList.add('active'); else b.classList.remove('active');
+    });
+    if (prefix === 'lv') { STATE.lvAll = null; STATE.lvKey = ''; PAGE['laporan-voucher'].page = 1; loadLaporanVoucher(true); }
+    else if (prefix === 'wjb') { STATE.wjbAll = null; STATE.wjbKey = ''; loadLaporanWjb(true); }
+    else if (prefix === 'ar') { STATE.arAll = null; loadAuditRedeem(true); }
+  }
+
+  function lvSubLabel() {
+    return STATE.lvKind === 'karyawan' ? 'karyawan' : 'anggota';
+  }
+
   function filterLaporanVoucher() {
     PAGE['laporan-voucher'].page = 1;
     loadLaporanVoucher(true);
   }
 
   function loadLaporanVoucher(force) {
-    var key = (String($('lv-cari').value || '') + '|' + String($('lv-kelompok').value || 'semua')).toLowerCase();
+    var kind = STATE.lvKind || 'anggota';
+    var key = (String($('lv-cari').value || '') + '|' + String($('lv-kelompok').value || 'semua') + '|' + kind).toLowerCase();
     if (!force && STATE.lvAll && STATE.lvKey === key) { renderLaporanVoucher(); return; }
-    busy(true, 'Menyusun laporan voucher anggota...');
+    busy(true, 'Menyusun laporan voucher ' + (kind === 'karyawan' ? 'karyawan' : 'anggota') + '...');
     google.script.run
       .withSuccessHandler(function (d) {
         busy(false);
@@ -5361,17 +5399,27 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
         renderLaporanVoucherKelompok(STATE.lvKelompok, $('lv-kelompok').value);
         STATE.lvAll = d.list || [];
         STATE.lvKey = key;
+        var lbl = (d.labels && d.labels.id) ? d.labels.id : (kind === 'karyawan' ? 'NIP' : 'No Anggota');
+        var grp = (d.labels && d.labels.grup) ? d.labels.grup : (kind === 'karyawan' ? 'Unit' : 'Kelompok');
+        $('th-lv-id').textContent = lbl;
+        $('th-lv-nip').textContent = kind === 'karyawan' ? 'Bagian' : 'NIP';
+        $('th-lv-grup').textContent = grp;
+        $('lv-cari').placeholder = kind === 'karyawan' ? 'Ketik kata kunci (NIP / Nama / Unit)...' : 'Ketik kata kunci...';
+        var lb1 = $('lv-cari-label');
+        if (lb1) lb1.textContent = kind === 'karyawan' ? 'Cari Nama / NIP / Bagian / Unit' : 'Cari Nama / No Anggota / NIP / Kelompok';
+        $('lv-judul-header').textContent = 'Laporan Voucher ' + (kind === 'karyawan' ? 'Karyawan' : 'Anggota');
         renderLaporanVoucher();
       })
       .withFailureHandler(function (e) { busy(false); showToast('Error laporan voucher: ' + e.message, true); })
-      .getLaporanVoucherAnggota({ search: $('lv-cari').value, kelompok: $('lv-kelompok').value, page: PAGE['laporan-voucher'].page, pageSize: PAGE['laporan-voucher'].size, token: SESSION.token, full: true });
+      .getLaporanVoucherAnggota({ search: $('lv-cari').value, kelompok: $('lv-kelompok').value, page: PAGE['laporan-voucher'].page, pageSize: PAGE['laporan-voucher'].size, token: SESSION.token, full: true, kind: kind });
   }
 
   function renderLaporanVoucherKelompok(options, selected) {
     var s = $('lv-kelompok');
     if (!s) return;
     var cur = String(selected || s.value || 'semua');
-    var html = ['<option value="semua">Semua Kelompok</option>'].concat((options || []).map(function (k) {
+    var isK = STATE.lvKind === 'karyawan';
+    var html = ['<option value="semua">Semua ' + (isK ? 'Unit' : 'Kelompok') + '</option>'].concat((options || []).map(function (k) {
       return '<option value="' + esc(k) + '">' + esc(k) + '</option>';
     })).join('');
     s.innerHTML = html;
@@ -5432,7 +5480,8 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
     var tbody = $('tabel-laporan-voucher');
     var foot = $('foot-laporan-voucher');
     if (!r || !r.list.length) {
-      tbody.innerHTML = '<tr><td colspan="12" class="empty">Belum ada data voucher anggota. Pastikan sheet "Voucher" (sheet eksternal MyKopinka) sudah tersinkron.</td></tr>';
+      var kosong = 'Belum ada data voucher ' + (STATE.lvKind === 'karyawan' ? 'karyawan' : 'anggota') + '. Pastikan sheet "Voucher" sudah tersinkron.';
+      tbody.innerHTML = '<tr><td colspan="12" class="empty">' + kosong + '</td></tr>';
       if (foot) foot.innerHTML = '';
     } else {
       var start = ((r.page - 1) * r.pageSize) + 1;
@@ -5454,7 +5503,7 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
       }).join('');
       var t = lvTotals(r.list);
       foot.innerHTML = '<tr>' +
-        '<td colspan="5" class="text-end fw-bold">TOTAL (' + r.total + ' anggota)</td>' +
+        '<td colspan="5" class="text-end fw-bold">TOTAL (' + r.total + ' ' + (STATE.lvKind === 'karyawan' ? 'karyawan' : 'anggota') + ')</td>' +
         '<td class="text-end fw-bold">' + t.used + '</td>' +
         '<td class="text-end fw-bold">' + t.active + '</td>' +
         '<td class="text-end fw-bold">' + t.expired + '</td>' +
@@ -5469,9 +5518,16 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
 
   function lvExportData() {
     var list = lvFilteredList();
-    var headers = ['NO', 'NO. ANGGOTA', 'NAMA', 'NIP', 'KELOMPOK', 'LEMBAR USED', 'LEMBAR ACTIVE', 'LEMBAR EXPIRE', 'LEMBAR ACTIVE+EXPIRE', 'NILAI USED', 'NILAI ACTIVE', 'NILAI EXPIRED'];
+    var isK = STATE.lvKind === 'karyawan';
+    var headers = ['NO'].concat(isK
+      ? ['NIP', 'NAMA', 'BAGIAN', 'UNIT']
+      : ['NO. ANGGOTA', 'NAMA', 'NIP', 'KELOMPOK']
+    ).concat(['LEMBAR USED', 'LEMBAR ACTIVE', 'LEMBAR EXPIRE', 'LEMBAR ACTIVE+EXPIRE', 'NILAI USED', 'NILAI ACTIVE', 'NILAI EXPIRED']);
     var rows = list.map(function (r, i) {
-      return { 'NO': i + 1, 'NO. ANGGOTA': r.NoAnggota, 'NAMA': r.Nama, 'NIP': r.NIP, 'KELOMPOK': r.Kelompok, 'LEMBAR USED': r.used, 'LEMBAR ACTIVE': r.active, 'LEMBAR EXPIRE': r.expired, 'LEMBAR ACTIVE+EXPIRE': r.activeExpired, 'NILAI USED': r.nilaiUsed, 'NILAI ACTIVE': r.nilaiActive, 'NILAI EXPIRED': r.nilaiExpired };
+      var row = { 'NO': i + 1, 'NAMA': r.Nama, 'LEMBAR USED': r.used, 'LEMBAR ACTIVE': r.active, 'LEMBAR EXPIRE': r.expired, 'LEMBAR ACTIVE+EXPIRE': r.activeExpired, 'NILAI USED': r.nilaiUsed, 'NILAI ACTIVE': r.nilaiActive, 'NILAI EXPIRED': r.nilaiExpired };
+      if (isK) { row['NIP'] = r.NoAnggota; row['BAGIAN'] = r.NIP; row['UNIT'] = r.Kelompok; }
+      else { row['NO. ANGGOTA'] = r.NoAnggota; row['NIP'] = r.NIP; row['KELOMPOK'] = r.Kelompok; }
+      return row;
     });
     return { list: list, headers: headers, rows: rows };
   }
@@ -5479,30 +5535,36 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
   function lvExport() {
     var d = lvExportData();
     if (!d.list.length) { showToast('Belum ada data laporan voucher untuk diexport.', true); return; }
-    exportXlsx('Laporan_Voucher_Anggota_' + todayStr(), 'Voucher Anggota', d.headers, d.rows);
+    var isK = STATE.lvKind === 'karyawan';
+    exportXlsx('Laporan_Voucher_' + (isK ? 'Karyawan_' : 'Anggota_') + todayStr(), 'Voucher ' + (isK ? 'Karyawan' : 'Anggota'), d.headers, d.rows);
   }
 
   function lvExportCsv() {
     var d = lvExportData();
     if (!d.list.length) { showToast('Belum ada data laporan voucher untuk diexport.', true); return; }
-    downloadCsv('Laporan_Voucher_Anggota_' + todayStr(), d.headers, d.rows);
+    var isK = STATE.lvKind === 'karyawan';
+    downloadCsv('Laporan_Voucher_' + (isK ? 'Karyawan_' : 'Anggota_') + todayStr(), d.headers, d.rows);
   }
 
   function lvCetakHtml(list) {
+    var isK = STATE.lvKind === 'karyawan';
+    var sub = isK ? 'karyawan' : 'anggota';
     var t = lvTotals(list);
     var trs = list.map(function (r, i) {
       return '<tr><td>' + (i + 1) + '</td><td>' + esc(r.NoAnggota) + '</td><td>' + esc(r.Nama) + '</td><td>' + esc(r.NIP) + '</td><td>' + esc(r.Kelompok) + '</td>' +
         '<td class="num">' + r.used + '</td><td class="num">' + r.active + '</td><td class="num">' + r.expired + '</td><td class="num">' + r.activeExpired + '</td>' +
         '<td class="num">' + formatIDR(r.nilaiUsed) + '</td><td class="num">' + formatIDR(r.nilaiActive) + '</td><td class="num">' + formatIDR(r.nilaiExpired) + '</td></tr>';
     }).join('');
-    var foot = '<tr class="lv-total"><td colspan="5" style="text-align:right">TOTAL (' + list.length + ' anggota)</td>' +
+    var foot = '<tr class="lv-total"><td colspan="5" style="text-align:right">TOTAL (' + list.length + ' ' + sub + ')</td>' +
       '<td class="num">' + t.used + '</td><td class="num">' + t.active + '</td><td class="num">' + t.expired + '</td><td class="num">' + t.activeExpired + '</td>' +
       '<td class="num">' + formatIDR(t.nilaiUsed) + '</td><td class="num">' + formatIDR(t.nilaiActive) + '</td><td class="num">' + formatIDR(t.nilaiExpired) + '</td></tr>';
+    var hd = isK
+      ? '<th rowspan="2">NO</th><th rowspan="2">NIP</th><th rowspan="2">NAMA</th><th rowspan="2">BAGIAN</th><th rowspan="2">UNIT</th>'
+      : '<th rowspan="2">NO</th><th rowspan="2">NO. ANGGOTA</th><th rowspan="2">NAMA</th><th rowspan="2">NIP</th><th rowspan="2">KELOMPOK</th>';
     return '<div class="lv-cetak-head"><h5 style="margin:0">SPARTA KOPINKA</h5>' +
-      '<div style="font-weight:700;font-size:13px">LAPORAN VOUCHER ANGGOTA</div>' +
-      '<div style="font-size:11px">Rekapitulasi lembar &amp; nilai voucher per anggota &middot; Disusun ' + todayStr() + '</div></div>' +
-      '<table><thead><tr>' +
-      '<th rowspan="2">NO</th><th rowspan="2">NO. ANGGOTA</th><th rowspan="2">NAMA</th><th rowspan="2">NIP</th><th rowspan="2">KELOMPOK</th>' +
+      '<div style="font-weight:700;font-size:13px">LAPORAN VOUCHER ' + sub.toUpperCase() + '</div>' +
+      '<div style="font-size:11px">Rekapitulasi lembar &amp; nilai voucher per ' + sub + ' &middot; Disusun ' + todayStr() + '</div></div>' +
+      '<table><thead><tr>' + hd +
       '<th colspan="4">STATUS VOUCHER (JUMLAH)</th><th colspan="3">NILAI VOUCHER (RUPIAH)</th></tr>' +
       '<tr><th>Used</th><th>Active</th><th>Expire</th><th>Active+Expire</th><th>Used</th><th>Active</th><th>Expired</th></tr></thead>' +
       '<tbody>' + trs + '</tbody><tfoot>' + foot + '</tfoot></table>' +
@@ -5543,9 +5605,13 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
   }
 
   function loadLaporanWjb(force) {
-    var key = String($('wjb-tahun').value || '');
+    var kind = STATE.wjbKind || 'anggota';
+    var sub = kind === 'karyawan' ? 'Karyawan' : 'Anggota';
+    var key = String($('wjb-tahun').value || '') + '|' + kind;
     if (!force && STATE.wjbAll && STATE.wjbKey === key) { renderLaporanWjb(); return; }
-    busy(true, 'Menyusun laporan wajib belanja...');
+    $('wjb-judul').textContent = sub;
+    $('wjb-judul2').textContent = sub.toUpperCase();
+    busy(true, 'Menyusun laporan wajib belanja ' + sub.toLowerCase() + '...');
     google.script.run
       .withSuccessHandler(function (d) {
         busy(false);
@@ -5562,7 +5628,7 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
         renderLaporanWjb();
       })
       .withFailureHandler(function (e) { busy(false); showToast('Error laporan wajib belanja: ' + e.message, true); })
-      .getLaporanWajibBelanja({ tahun: $('wjb-tahun').value || '', token: SESSION.token });
+      .getLaporanWajibBelanja({ tahun: $('wjb-tahun').value || '', token: SESSION.token, kind: kind });
   }
 
   function renderLaporanWjb() {
@@ -5672,7 +5738,7 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
     }).join('');
     var foot2 = '<tr class="lv-total"><td colspan="2" class="num">TOTAL</td><td class="num">' + formatIDR(ot.nominal) + '</td><td class="num">' + ot.jml + '</td></tr>';
     return '<div class="lv-cetak-head"><h5 style="margin:0">SPARTA KOPINKA</h5>' +
-      '<div style="font-weight:700;font-size:13px">LAPORAN PROGRAM WAJIB BELANJA ANGGOTA (PER ' + fmtTanggalLong(d.dataUpdate) + ')</div>' +
+      '<div style="font-weight:700;font-size:13px">LAPORAN PROGRAM WAJIB BELANJA ' + (STATE.wjbKind === 'karyawan' ? 'KARYAWAN' : 'ANGGOTA') + ' (PER ' + fmtTanggalLong(d.dataUpdate) + ')</div>' +
       '<div style="font-size:11px">Data update: ' + fmtTanggalID(d.dataUpdate) + '</div></div>' +
       '<div style="font-size:12px;font-weight:700;margin:8px 0 4px">A. REKAPITULASI BULANAN</div>' +
       '<table><thead><tr><th rowspan="2">NO</th><th rowspan="2">BULAN</th>' +
@@ -5703,8 +5769,9 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
   /* ---------------- AUDIT DATA REDEEM ---------------- */
 
   function loadAuditRedeem(force) {
+    var kind = STATE.arKind || 'anggota';
     if (!force && STATE.arAll) { renderAuditRedeem(); return; }
-    busy(true, 'Membandingkan data voucher & mutasi...');
+    busy(true, 'Membandingkan data voucher & mutasi ' + (kind === 'karyawan' ? 'karyawan' : 'anggota') + '...');
     google.script.run
       .withSuccessHandler(function (d) {
         busy(false);
@@ -5714,12 +5781,14 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
         renderAuditRedeem();
       })
       .withFailureHandler(function (e) { busy(false); showToast('Error audit: ' + e.message, true); })
-      .getAuditRedeem({ token: SESSION.token });
+      .getAuditRedeem({ token: SESSION.token, kind: kind });
   }
 
   function renderAuditRedeem() {
     var d = STATE.arAll;
     if (!d) return;
+    var idLbl = (d.labels && d.labels.id) ? d.labels.id : (STATE.arKind === 'karyawan' ? 'NIP' : 'No Anggota');
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ar-id]'), function (el) { el.textContent = idLbl; });
     var s = d.summary || {};
     $('ar-used').textContent = s.usedJml || 0;
     $('ar-used-nom').textContent = formatIDR(s.usedNom);

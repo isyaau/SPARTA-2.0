@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.27';
+var APP_VERSION = '2.0.28';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -4728,36 +4728,49 @@ function emptyLaporanVoucherSummary_() {
 
 function getLaporanVoucherAnggota(data) {
   data = data || {};
+  var kind = data.kind === 'karyawan' ? 'karyawan' : 'anggota';
   var u = validasiSesi(String(data.token || '').trim());
   if (!u) return { ok: false, message: 'Sesi berakhir. Silakan login kembali.', list: [], total: 0, page: 1, pages: 1, pageSize: 0, summary: emptyLaporanVoucherSummary_(), kelompok: [] };
 
-  var res = readMirrorSheet_('anggota', 'voucher', normalizeVoucher_, 'voucher anggota');
+  var isK = kind === 'karyawan';
+  var res = isK
+    ? readMirrorSheet_('karyawan', 'voucher', normalizeVoucherKaryawan_, 'voucher karyawan')
+    : readMirrorSheet_('anggota', 'voucher', normalizeVoucher_, 'voucher anggota');
   if (!res.ok) return { ok: false, message: res.message, list: [], total: 0, page: 1, pages: 1, pageSize: 0, summary: emptyLaporanVoucherSummary_(), kelompok: [] };
 
-  var da = readDataAnggotaExt_();
   var amap = {};
-  if (da && da.ok) da.list.forEach(function (a) {
-    var no = String(a.NoAnggota || '');
-    if (no && !amap[no]) amap[no] = a;
-  });
+  if (isK) {
+    var dk = readDataKaryawan_();
+    if (dk && dk.ok) dk.list.forEach(function (k) {
+      [k.NIPBaru, k.NIPLama].forEach(function (no) {
+        if (no && !amap[no]) amap[no] = k;
+      });
+    });
+  } else {
+    var da = readDataAnggotaExt_();
+    if (da && da.ok) da.list.forEach(function (a) {
+      var no = String(a.NoAnggota || '');
+      if (no && !amap[no]) amap[no] = a;
+    });
+  }
 
   var paket = {};
   var today = Utilities.formatDate(new Date(), getTimeZone_(), 'yyyy-MM-dd');
   (res.list || []).forEach(function (v) {
-    var rawNo = formatCell_(v.NoAnggota);
-    var no = rawNo.replace(/^A/i, '');
+    var rawNo = formatCell_(isK ? v.NIP : v.NoAnggota);
+    var no = rawNo.replace(isK ? /^K/i : /^A/i, '');
     if (!no) return;
-    var src = amap[no] || amap['A' + no] || amap[rawNo] || {};
+    var src = amap[no] || amap[(isK ? 'K' : 'A') + no] || amap[rawNo] || {};
     var p = paket[no] || {
-      NoAnggota: formatCell_(src.NoAnggota || rawNo || no),
-      Nama: formatCell_(src.Nama || v.Nama),
-      NIP: formatCell_(src.NIP),
-      Kelompok: formatCell_(src.Kelompok || v.Kelompok),
+      NoAnggota: formatCell_(isK ? (src.NIPBaru || src.NIPLama || rawNo || no) : (src.NoAnggota || rawNo || no)),
+      Nama: formatCell_(isK ? (src.NamaLengkap || v.Nama) : (src.Nama || v.Nama)),
+      NIP: formatCell_(isK ? (src.Bagian || v.Bagian || '') : (src.NIP || '')),
+      Kelompok: formatCell_(isK ? (src.Unit || src.Bagian || v.Unit || v.Bagian || '') : (src.Kelompok || v.Kelompok)),
       used: 0, active: 0, expired: 0,
       nilaiUsed: 0, nilaiActive: 0, nilaiExpired: 0
     };
     if (!p.Nama) p.Nama = formatCell_(v.Nama);
-    if (!p.Kelompok) p.Kelompok = formatCell_(v.Kelompok);
+    if (!p.Kelompok) p.Kelompok = formatCell_(isK ? (v.Unit || v.Bagian) : v.Kelompok);
     var kat = statusVoucherRekap_(v, today);
     var nilai = cleanNum_(v.Nilai);
     if (kat === 'used') { p.used += 1; p.nilaiUsed += nilai; }
@@ -4819,6 +4832,7 @@ function getLaporanVoucherAnggota(data) {
   r.message = res.message;
   r.summary = summary;
   r.kelompok = Object.keys(optSet).sort();
+  r.labels = { id: isK ? 'NIP' : 'No Anggota', grup: isK ? 'Unit' : 'Kelompok' };
   return r;
 }
 
@@ -4828,12 +4842,17 @@ function getLaporanVoucherAnggota(data) {
 
 function getLaporanWajibBelanja(data) {
   data = data || {};
+  var kind = data.kind === 'karyawan' ? 'karyawan' : 'anggota';
   var u = validasiSesi(String(data.token || '').trim());
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
 
-  var voucherRes = readMirrorSheet_('anggota', 'voucher', normalizeVoucher_, 'voucher anggota');
+  var voucherRes = kind === 'karyawan'
+    ? readMirrorSheet_('karyawan', 'voucher', normalizeVoucherKaryawan_, 'voucher karyawan')
+    : readMirrorSheet_('anggota', 'voucher', normalizeVoucher_, 'voucher anggota');
   if (!voucherRes.ok) return getErrorObj_(voucherRes.message);
-  var mutasiRes = readMirrorSheet_('anggota', 'mutasi', normalizeMutasiAnggota_, 'mutasi anggota');
+  var mutasiRes = kind === 'karyawan'
+    ? readMirrorSheet_('karyawan', 'mutasi', normalizeMutasiKaryawan_, 'mutasi karyawan')
+    : readMirrorSheet_('anggota', 'mutasi', normalizeMutasiAnggota_, 'mutasi anggota');
   if (!mutasiRes.ok) return getErrorObj_(mutasiRes.message);
 
   var tahun = parseInt(data.tahun, 10);
@@ -4956,13 +4975,23 @@ function getLaporanWajibBelanja(data) {
 
 function getAuditRedeem(data) {
   data = data || {};
+  var kind = data.kind === 'karyawan' ? 'karyawan' : 'anggota';
+  var isK = kind === 'karyawan';
   var u = validasiSesi(String(data.token || '').trim());
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
 
-  var voucherRes = readMirrorSheet_('anggota', 'voucher', normalizeVoucher_, 'voucher anggota');
+  var voucherRes = kind === 'karyawan'
+    ? readMirrorSheet_('karyawan', 'voucher', normalizeVoucherKaryawan_, 'voucher karyawan')
+    : readMirrorSheet_('anggota', 'voucher', normalizeVoucher_, 'voucher anggota');
   if (!voucherRes.ok) return getErrorObj_(voucherRes.message);
-  var mutasiRes = readMirrorSheet_('anggota', 'mutasi', normalizeMutasiAnggota_, 'mutasi anggota');
+  var mutasiRes = kind === 'karyawan'
+    ? readMirrorSheet_('karyawan', 'mutasi', normalizeMutasiKaryawan_, 'mutasi karyawan')
+    : readMirrorSheet_('anggota', 'mutasi', normalizeMutasiAnggota_, 'mutasi anggota');
   if (!mutasiRes.ok) return getErrorObj_(mutasiRes.message);
+
+  var idOf = isK
+    ? function (v) { return formatCell_(v.NIP); }
+    : function (v) { return formatCell_(v.NoAnggota); };
 
   var vm = {};
   (voucherRes.list || []).forEach(function (v) {
@@ -5001,18 +5030,18 @@ function getAuditRedeem(data) {
       }
       if (!rows.length) {
         usedWithoutMutasi.push({
-          Kode: kode, NoAnggota: v.NoAnggota, Nama: v.Nama, Nilai: cleanNum_(v.Nilai),
+          Kode: kode, NoAnggota: idOf(v), Nama: v.Nama, Nilai: cleanNum_(v.Nilai),
           AktifMulai: v.AktifMulai, ExpDate: v.ExpDate, Status: v.Status
         });
       } else if (rows.length > 1) {
         multiMutasi.push({
-          Kode: kode, NoAnggota: v.NoAnggota, Nama: v.Nama, Nilai: cleanNum_(v.Nilai),
+          Kode: kode, NoAnggota: idOf(v), Nama: v.Nama, Nilai: cleanNum_(v.Nilai),
           AktifMulai: v.AktifMulai, JumlahMutasi: rows.length
         });
       }
     } else if (rows.length) {
       statusMismatch.push({
-        Kode: kode, NoAnggota: v.NoAnggota, Nama: v.Nama, Nilai: cleanNum_(v.Nilai),
+        Kode: kode, NoAnggota: idOf(v), Nama: v.Nama, Nilai: cleanNum_(v.Nilai),
         Status: v.Status, JumlahMutasi: rows.length, AktifMulai: v.AktifMulai
       });
     }
@@ -5032,7 +5061,7 @@ function getAuditRedeem(data) {
       if (!vm[kode]) {
         mutasiWithoutVoucher.push({
           Kode: kode, Waktu: m.Waktu, Toko: m.Toko, Nilai: cleanNum_(m.Nilai),
-          NoAnggota: m.NoAnggota, Nama: m.Nama
+          NoAnggota: idOf(m), Nama: m.Nama
         });
       }
     });
@@ -5072,6 +5101,7 @@ function getAuditRedeem(data) {
       selisihJml: usedJml - mutasiJml,
       selisihNom: Math.round((usedNom - mutasiNom) * 100) / 100
     },
+    labels: { id: isK ? 'NIP' : 'No Anggota' },
     bulan: bulan,
     usedWithoutMutasi: usedWithoutMutasi,
     mutasiWithoutVoucher: mutasiWithoutVoucher,

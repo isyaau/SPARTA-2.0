@@ -33,7 +33,9 @@ cmd /c "clasp deploy -i AKfycbzY4u5xFFXTteCxUj-Ga5FgWZ4Qb720PfHxCut99SQV9VnA31kr
 
 Setara dengan `npm run deploy` (butuh clasp global; `node_modules` tidak diinstal).
 
-## Keadaan terakhir (v2.0.27)
+## Keadaan terakhir (v2.0.28)
+
+- **Laporan Voucher, Wajib Belanja, dan Audit Redeem kini untuk Anggota & Karyawan** (v2.0.28): ketiga menu punya toggle `Anggota | Karyawan` (parameter `kind`). Backend memilih sumber mirror `karyawan`/`anggota` (voucher & mutasi) dan master (anggota eksternal / `readDataKaryawan_`); label kolom menyesuaikan (NoAnggota→NIP, Kelompok→Unit, kolom NIP→Bagian). `getLaporanVoucherAnggota`, `getLaporanWajibBelanja`, `getAuditRedeem` menerima `data.kind`.
 
 - **Menu Audit Data Redeem** (v2.0.27): pembanding voucher berstatus `Used` (sheet Voucher) vs baris log redeem (sheet Mutasi) via kode voucher — kartu ringkasan (Used/Mutasi/Selisih), rekap per bulan, daftar **Used tanpa log mutasi**, **mutasi tanpa voucher induk**, **status tidak konsisten**, dan **multi mutasi**; export XLSX/CSV. Backend `getAuditRedeem`.
 
