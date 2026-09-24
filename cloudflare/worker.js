@@ -1,95 +1,75 @@
 /**
- * Cloudflare Worker - SPARTA KOPINKA reverse proxy
+ * Cloudflare Worker - SPARTA KOPINKA landing page gateway
  *
- * Menyajikan Google Apps Script web app (SPARTA KOPINKA MAIN) di domain sendiri,
- * mis. https://sparta.kopinka.com — TANPA redirect.
+ * Menyajikan halaman brand SPARTA KOPINKA di domain sendiri (sparta.kopinka.com)
+ * dengan tombol "Buka Aplikasi" yang mengarah ke web app Google Apps Script:
+ *   https://script.google.com/macros/s/AKfycbzOyxDPX0.../exec
  *
- * Cara kerja:
- *  1. Semua request (GET host page, iframe app uiv=3, RPC google.script.run POST)
- *     diteruskan server-side ke exec URL Google Apps Script.
- *  2. Redirect 302 dari script.google -> script.googleusercontent di-follow otomatis.
- *  3. Response HTML/JS/CSS di-rewrite: URL absolute ke script.google.com on
- *     script.googleusercontent (path /macros/s/<ID>) diganti ke origin Worker.
- *  4. Header keamanan (CSP / X-Frame-Options / content-encoding) disesuaikan
- *     agar halaman bisa disajikan dari domain sendiri.
- *
- * Wajib: session Google pemilik app masih diperlukan (access: MYSELF) — cookie
- *         request browser diteruskan apa adanya. Buka domain sambil login Google
- *         sebagai ADMIN KOPINKA.
+ * CATATAN (penting):
+ *  Web app GAS modern (arsitektur mae) TIDAK bisa dirender penuh di origin non-Google.
+ *  Bukti: client mae Google menolak origin lain ("posting uri is not valid")
+ *  dan halaman induk mengirim X-Frame-Options SAMEORIGIN + CSP frame-ancestors 'self'.
+ *  Karenanya Worker ini berperan sebagai gateway/halaman pembuka, bukan reverse proxy.
  */
 
-const MACROS =
-  '/macros/s/AKfycbzOyxDPX0ifsL0A7d0KFrQ7UOqQaw67U8C1RHx0M8rz1q8eRfjShm2yzq3aWP7YRcIs4A';
-const UPSTREAM = 'https://script.google.com';
+const APP_URL =
+  'https://script.google.com/macros/s/AKfycbzOyxDPX0ifsL0A7d0KFrQ7UOqQaw67U8C1RHx0M8rz1q8eRfjShm2yzq3aWP7YRcIs4A/exec';
 
-// Preset URL Google yang di-rewrite menjadi origin Worker.
-const REWRITE = 'https://script.google.com' + MACROS;             // host page, iframe app, RPC
-const REWRITE_ALT = 'https://script.googleusercontent.com' + MACROS; // host setelah redirect 302
+const APP_VERSION = 'v2.0.33';
 
-const SKIP_HEADERS = new Set([
-  'content-security-policy',
-  'content-encoding',
-  'content-length',
-  'transfer-encoding',
-  'x-frame-options',
-  'x-content-security-policy',
-  'x-webkit-csp',
-]);
+const PAGE = `<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPARTA KOPINKA</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  :root{--red:#dc2626;--red-dark:#991b1b;--dark:#1f2937;--muted:#6b7280;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:"Segoe UI",system-ui,-apple-system,Arial,sans-serif;background:radial-gradient(1200px 600px at 80% -10%,#7f1d1d 0%,#450a0a 45%,#1f130f 100%);color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+  .card{max-width:420px;width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:44px 36px;text-align:center;backdrop-filter:blur(6px);box-shadow:0 30px 60px rgba(0,0,0,.45)}
+  .logo{width:76px;height:76px;border-radius:18px;background:linear-gradient(135deg,#ef4444,#991b1b);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:38px;font-weight:800;box-shadow:0 12px 28px rgba(220,38,38,.45)}
+  h1{font-size:26px;letter-spacing:.5px}
+  .sub{color:#fecaca;margin:8px 0 26px;font-size:14px}
+  .btn{display:inline-block;width:100%;padding:14px 20px;border-radius:12px;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;text-decoration:none;font-size:16px;font-weight:700;letter-spacing:.4px;transition:transform .12s ease,box-shadow .12s ease;box-shadow:0 10px 24px rgba(220,38,38,.4)}
+  .btn:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(220,38,38,.55)}
+  .btn:active{transform:translateY(0)}
+  .foot{margin-top:26px;color:rgba(255,255,255,.55);font-size:12px}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">S</div>
+    <h1>SPARTA KOPINKA</h1>
+    <p class="sub">Aplikasi Voucher &amp; Piutang — silakan masuk untuk melanjutkan</p>
+    <a class="btn" href="${APP_URL}" target="_blank" rel="noopener">Buka Aplikasi</a>
+    <div class="foot">${APP_VERSION} &middot; Kopinka</div>
+  </div>
+</body>
+</html>`;
+
+const ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#dc2626"/><text x="16" y="22" font-family="Arial,sans-serif" font-size="18" font-weight="bold" text-anchor="middle" fill="white">S</text></svg>`;
 
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request) {
     const url = new URL(request.url);
-    const ourOrigin = url.origin;
 
-    // Map path di domain kita -> path upstream di script.google.com.
-    // '/'            -> host page (exec)
-    // '/exec', dst. -> halaman app / RPC, hasil rewrite di bawah
-    const path =
-      url.pathname === '/'
-        ? MACROS + '/exec'
-        : url.pathname.startsWith(MACROS)
-          ? url.pathname
-          : MACROS + url.pathname;
-
-    const upstreamUrl = UPSTREAM + path + url.search;
-
-    const init = {
-      method: request.method,
-      headers: request.headers,
-      redirect: 'follow', // ikuti 302 -> script.googleusercontent.com
-    };
-    if (request.method !== 'GET' && request.method !== 'HEAD') {
-      init.body = request.body;
+    if (url.pathname === '/favicon.ico' || url.pathname === '/favicon.svg') {
+      return new Response(ICON_SVG, {
+        headers: {
+          'content-type': 'image/svg+xml',
+          'cache-control': 'public, max-age=86400',
+        },
+      });
     }
 
-    let upstream;
-    try {
-      upstream = await fetch(upstreamUrl, init);
-    } catch (e) {
-      return new Response('Proxy error: ' + e.message, { status: 502 });
-    }
-
-    const contentType = upstream.headers.get('content-type') || '';
-    const headers = new Headers();
-    upstream.headers.forEach((value, key) => {
-      if (!SKIP_HEADERS.has(key.toLowerCase())) headers.set(key, value);
+    return new Response(PAGE, {
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-cache',
+      },
     });
-    headers.set('cache-control', 'no-store');
-
-    // Rewrite hanya untuk body teks (HTML app / JS client / CSS).
-    const needsRewrite = /text\/html|text\/javascript|application\/javascript|text\/css/.test(contentType);
-
-    if (needsRewrite) {
-      let text = await upstream.text();
-      text = text.split(REWRITE).join(ourOrigin).split(REWRITE_ALT).join(ourOrigin);
-
-      const enc = new TextEncoder().encode(text);
-      headers.set('content-length', String(enc.byteLength));
-      headers.set('content-type', contentType.replace(/;?\s*charset=[^;]+/i, '') + '; charset=utf-8');
-      return new Response(enc, { status: upstream.status, headers });
-    }
-
-    // Body non-teks (trailing slash, woff, dll) — terusan langsung.
-    return new Response(upstream.body, { status: upstream.status, headers });
   },
 };
