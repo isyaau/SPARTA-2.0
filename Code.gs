@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.25';
+var APP_VERSION = '2.0.26';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -4820,6 +4820,134 @@ function getLaporanVoucherAnggota(data) {
   r.summary = summary;
   r.kelompok = Object.keys(optSet).sort();
   return r;
+}
+
+/** ------------------------------------------------------------------ */
+/** LAPORAN PROGRAM WAJIB BELANJA ANGGOTA (rekap bulanan + per outlet) */
+/** ------------------------------------------------------------------ */
+
+function getLaporanWajibBelanja(data) {
+  data = data || {};
+  var u = validasiSesi(String(data.token || '').trim());
+  if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
+
+  var voucherRes = readMirrorSheet_('anggota', 'voucher', normalizeVoucher_, 'voucher anggota');
+  if (!voucherRes.ok) return getErrorObj_(voucherRes.message);
+  var mutasiRes = readMirrorSheet_('anggota', 'mutasi', normalizeMutasiAnggota_, 'mutasi anggota');
+  if (!mutasiRes.ok) return getErrorObj_(mutasiRes.message);
+
+  var tahun = parseInt(data.tahun, 10);
+  if (!tahun) tahun = new Date().getFullYear();
+  var tahunPf = String(tahun) + '-';
+
+  var issuer = {};
+  var bulanSet = {};
+  (voucherRes.list || []).forEach(function (v) {
+    var kode = normalizeKodeVoucher_(v.Kode);
+    var bln = bulanKey_(v.AktifMulai);
+    if (!kode || !bln || bln.indexOf(tahunPf) !== 0) return;
+    issuer[kode] = { bulan: bln, nilai: cleanNum_(v.Nilai) };
+    bulanSet[bln] = true;
+  });
+
+  var bulanan = {};
+  function initBln(b) { if (!bulanan[b]) bulanan[b] = { dJml: 0, dNom: 0, rJml: 0, rNom: 0 }; }
+  Object.keys(bulanSet).forEach(initBln);
+  Object.keys(issuer).forEach(function (k) {
+    var it = issuer[k];
+    initBln(it.bulan);
+    bulanan[it.bulan].dJml += 1;
+    bulanan[it.bulan].dNom += it.nilai;
+  });
+
+  var unmatched = 0;
+  var lastDate = '';
+  (mutasiRes.list || []).forEach(function (m) {
+    var bln = bulanKey_(m.Waktu);
+    var kode = normalizeKodeVoucher_(m.KodeVoucher);
+    var it = issuer[kode];
+    var b = it ? it.bulan : bln;
+    if (!b || b.indexOf(tahunPf) !== 0) return;
+    if (!it) unmatched += 1;
+    initBln(b);
+    bulanan[b].rJml += 1;
+    bulanan[b].rNom += cleanNum_(m.Nilai);
+    var dd = parseDateStr_(m.Waktu);
+    if (dd && dd > lastDate) lastDate = dd;
+  });
+
+  var today = Utilities.formatDate(new Date(), getTimeZone_(), 'yyyy-MM-dd');
+  var dataUpdate = lastDate && lastDate > today ? lastDate : today;
+
+  var rows = Object.keys(bulanan).sort().map(function (b) {
+    var x = bulanan[b];
+    return {
+      bulan: b,
+      diterbitkanJml: x.dJml,
+      diterbitkanNominal: Math.round(x.dNom * 100) / 100,
+      redeemJml: x.rJml,
+      redeemNominal: Math.round(x.rNom * 100) / 100,
+      sisaJml: x.dJml - x.rJml,
+      sisaNominal: Math.round((x.dNom - x.rNom) * 100) / 100,
+      persen: x.dNom > 0 ? Math.round((x.rNom / x.dNom) * 100) : 0
+    };
+  });
+
+  var total = { diterbitkanJml: 0, diterbitkanNominal: 0, redeemJml: 0, redeemNominal: 0, sisaJml: 0, sisaNominal: 0 };
+  rows.forEach(function (r) {
+    total.diterbitkanJml += r.diterbitkanJml;
+    total.diterbitkanNominal += r.diterbitkanNominal;
+    total.redeemJml += r.redeemJml;
+    total.redeemNominal += r.redeemNominal;
+    total.sisaJml += r.sisaJml;
+    total.sisaNominal += r.sisaNominal;
+  });
+  total.diterbitkanNominal = Math.round(total.diterbitkanNominal * 100) / 100;
+  total.redeemNominal = Math.round(total.redeemNominal * 100) / 100;
+  total.sisaNominal = Math.round(total.sisaNominal * 100) / 100;
+  total.persen = total.diterbitkanNominal > 0 ? Math.round((total.redeemNominal / total.diterbitkanNominal) * 100) : 0;
+
+  var outlet = {};
+  (mutasiRes.list || []).forEach(function (m) {
+    var bln = bulanKey_(m.Waktu);
+    if (bln.indexOf(tahunPf) !== 0) return;
+    var nama = String(m.Toko || '').trim() || '(Outlet tidak terisi)';
+    var o = outlet[nama] || { nominal: 0, jml: 0 };
+    o.nominal += cleanNum_(m.Nilai);
+    o.jml += 1;
+    outlet[nama] = o;
+  });
+  var outletList = Object.keys(outlet).map(function (n) {
+    return { outlet: n, nominal: Math.round(outlet[n].nominal * 100) / 100, jml: outlet[n].jml };
+  }).sort(function (a, b) { return b.nominal - a.nominal; });
+  var outletTotal = { nominal: 0, jml: 0 };
+  outletList.forEach(function (o) { outletTotal.nominal += o.nominal; outletTotal.jml += o.jml; });
+  outletTotal.nominal = Math.round(outletTotal.nominal * 100) / 100;
+
+  var tahunList = {};
+  (voucherRes.list || []).forEach(function (v) {
+    var b = bulanKey_(v.AktifMulai);
+    if (b) tahunList[b.slice(0, 4)] = true;
+  });
+  (mutasiRes.list || []).forEach(function (m) {
+    var b = bulanKey_(m.Waktu);
+    if (b) tahunList[b.slice(0, 4)] = true;
+  });
+
+  var msg = 'Rekap per ' + Utilities.formatDate(new Date(), getTimeZone_(), 'dd/MM/yyyy');
+  if (unmatched) msg += '. Sebanyak ' + unmatched + ' redeem tanpa voucher induk dikelompokkan ke bulan redeem-nya.';
+
+  return {
+    ok: true,
+    message: msg,
+    tahun: Object.keys(tahunList).sort().reverse(),
+    tahunPilih: String(tahun),
+    dataUpdate: dataUpdate,
+    bulanan: rows,
+    bulananTotal: total,
+    outlet: outletList,
+    outletTotal: outletTotal
+  };
 }
 
 /** ------------------------------------------------------------------ */

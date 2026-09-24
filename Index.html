@@ -253,6 +253,8 @@
       #struk-cetak { position: absolute; left: 0; top: 0; width: 100%; padding: 16px; background: #fff; }
       #lv-cetak, #lv-cetak * { visibility: visible !important; }
       #lv-cetak { position: absolute; left: 0; top: 0; width: 100%; padding: 16px; background: #fff; }
+      #wjb-cetak, #wjb-cetak * { visibility: visible !important; }
+      #wjb-cetak { position: absolute; left: 0; top: 0; width: 100%; padding: 16px; background: #fff; }
       .modal-backdrop.show { visibility: hidden !important; }
     }
     .lv-cetak { font-size: 12px; color: #222; }
@@ -309,7 +311,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-<div class="text-center mt-3 small text-muted" id="login-version">v2.0.25</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.26</div>
       </div>
     </div>
   </div>
@@ -337,12 +339,13 @@
       <button id="nav-broadcast" class="nav-link" onclick="showPage('broadcast')"><i class="bi bi-send"></i><span>Broadcast</span></button>
       <button id="nav-laporan" class="nav-link" onclick="showPage('laporan')"><i class="bi bi-clipboard-data"></i><span>Laporan</span></button>
       <button id="nav-laporan-voucher" class="nav-link" onclick="showPage('laporan-voucher')"><i class="bi bi-ticket-detailed"></i><span>Laporan Voucher</span></button>
+      <button id="nav-laporan-wjb" class="nav-link" onclick="showPage('laporan-wjb')"><i class="bi bi-cart-check"></i><span>Laporan Wajib Belanja</span></button>
       <button id="nav-pengguna" class="nav-link admin-only" onclick="showPage('pengguna')" style="display:none"><i class="bi bi-people-fill"></i><span>Pengguna</span></button>
       <button id="nav-pengaturan" class="nav-link" onclick="showPage('pengaturan')"><i class="bi bi-gear-fill"></i><span>Pengaturan</span></button>
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.25</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.26</small>
     </div>
   </aside>
 
@@ -1447,6 +1450,90 @@
     </div>
   </section>
 
+  <!-- ===================== LAPORAN PROGRAM WAJIB BELANJA ===================== -->
+  <section id="page-laporan-wjb" class="page">
+    <div class="dash-head">
+      <div>
+        <h4><i class="bi bi-cart-check me-1"></i>Laporan Program Wajib Belanja Anggota</h4>
+        <p>Rekapitulasi bulanan penerbitan &amp; realisasi voucher serta detail penggunaan per outlet.</p>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3"><i class="bi bi-funnel me-1"></i>Filter Laporan</h6>
+        <div class="row g-3 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label small text-muted" for="wjb-tahun">Tahun</label>
+            <select id="wjb-tahun" class="form-select" onchange="filterLaporanWjb()"><option value="">-</option></select>
+          </div>
+          <div class="col-md-3">
+            <button class="btn btn-success" onclick="loadLaporanWjb(true)"><i class="bi bi-arrow-repeat me-1"></i>Muat Ulang Data</button>
+          </div>
+        </div>
+        <div class="form-text mt-2" id="wjb-sumber"></div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <h6 class="fw-bold text-center mb-0">LAPORAN PROGRAM WAJIB BELANJA ANGGOTA (PER <span id="wjb-per">-</span>)</h6>
+        <div class="text-end small text-muted mt-1 mb-2" id="wjb-update"></div>
+        <div class="table-responsive">
+          <table class="table table-hover table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th rowspan="2" class="small text-uppercase text-muted">No.</th>
+                <th rowspan="2" class="small text-uppercase text-muted">Bulan</th>
+                <th colspan="2" class="small text-uppercase text-muted text-center">Voucher Yg Diterbitkan</th>
+                <th colspan="2" class="small text-uppercase text-muted text-center">Redeem Voucher</th>
+                <th colspan="2" class="small text-uppercase text-muted text-center">Sisa Yg Belum Digunakan</th>
+                <th rowspan="2" class="small text-uppercase text-muted text-center">Realisasi</th>
+              </tr>
+              <tr>
+                <th class="small text-muted text-end">Jumlah (lembar)</th>
+                <th class="small text-muted text-end">Nominal (Rp)</th>
+                <th class="small text-muted text-end">Jumlah (lembar)</th>
+                <th class="small text-muted text-end">Nominal (Rp)</th>
+                <th class="small text-muted text-end">Jumlah (lembar)</th>
+                <th class="small text-muted text-end">Nominal (Rp)</th>
+              </tr>
+            </thead>
+            <tbody id="tabel-wjb-bulanan"></tbody>
+            <tfoot class="table-light" id="foot-wjb-bulanan"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">
+          <h6 class="fw-bold mb-0"><i class="bi bi-shop me-1"></i>Detail Penggunaan Voucher Per Outlet</h6>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="wjbCetak()" title="Cetak laporan"><i class="bi bi-printer me-1"></i>Cetak</button>
+            <button type="button" class="btn btn-sm btn-outline-success" onclick="wjbExport()" title="Export Excel (.xlsx)"><i class="bi bi-file-earmark-excel me-1"></i>Export</button>
+            <button type="button" class="btn btn-sm btn-outline-success" onclick="wjbExportCsv()" title="Export CSV"><i class="bi bi-filetype-csv me-1"></i>CSV</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="small text-uppercase text-muted">No.</th>
+                <th class="small text-uppercase text-muted">Outlet</th>
+                <th class="small text-uppercase text-muted text-end">Nominal</th>
+                <th class="small text-uppercase text-muted text-end">Jmlh Voucher</th>
+              </tr>
+            </thead>
+            <tbody id="tabel-wjb-outlet"></tbody>
+            <tfoot class="table-light" id="foot-wjb-outlet"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ===================== PENGUNA ===================== -->
   <section id="page-pengguna" class="page">
     <div class="card">
@@ -2001,6 +2088,25 @@
   </div>
 </div>
 
+<!-- Modal Cetak Laporan Wajib Belanja -->
+<div class="modal fade" id="modal-wjb-cetak" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold"><i class="bi bi-printer text-success me-1"></i>Cetak Laporan Wajib Belanja</h5>
+        <button type="button" class="btn-close" onclick="wjbCetakTutup()"></button>
+      </div>
+      <div class="modal-body pt-2">
+        <div class="lv-cetak" id="wjb-cetak"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" onclick="wjbCetakTutup()">Tutup</button>
+        <button class="btn btn-warning" onclick="wjbCetakPrint()"><i class="bi bi-printer me-1"></i>Cetak / Print</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
@@ -2015,6 +2121,7 @@
     piutangk: { page: 1, size: 25, pages: 1 },
     laporan: { page: 1, size: 25, pages: 1 },
     'laporan-voucher': { page: 1, size: 25, pages: 1 },
+    'laporan-wjb': { page: 1, size: 25, pages: 1 },
     pengguna: { page: 1, size: 25, pages: 1 },
     pengaturan: { page: 1, size: 25, pages: 1 },
     notifikasi: { page: 1, size: 25, pages: 1 },
@@ -2044,6 +2151,8 @@
     laporanSub: 'anggota',
     lvAll: null,
     lvKey: '',
+    wjbAll: null,
+    wjbKey: '',
     rvKind: 'anggota',
     rpKind: 'anggota',
     bcastFilter: 'semua',
@@ -2070,6 +2179,7 @@
     vk: loadVoucherKaryawan,
     laporan: loadLaporan,
     'laporan-voucher': loadLaporanVoucher,
+    'laporan-wjb': loadLaporanWjb,
     pengguna: loadPengguna,
     pengaturan: loadPengaturan,
     notifikasi: loadNotifikasi,
@@ -2462,7 +2572,7 @@
       '</div></div></div>';
   }
 
-  var PAGE_TITLES = { dashboard: 'Dashboard', anggota: 'Data Anggota', karyawan: 'Data Karyawan', piutang: 'Data Kredit', redeem: 'Transaksi', mutasi: 'Mutasi Voucher', voucher: 'Voucher', notifikasi: 'Notifikasi', broadcast: 'Broadcast', laporan: 'Laporan', 'laporan-voucher': 'Laporan Voucher Anggota', pengguna: 'Pengguna & Login', pengaturan: 'Pengaturan' };
+  var PAGE_TITLES = { dashboard: 'Dashboard', anggota: 'Data Anggota', karyawan: 'Data Karyawan', piutang: 'Data Kredit', redeem: 'Transaksi', mutasi: 'Mutasi Voucher', voucher: 'Voucher', notifikasi: 'Notifikasi', broadcast: 'Broadcast', laporan: 'Laporan', 'laporan-voucher': 'Laporan Voucher Anggota', 'laporan-wjb': 'Laporan Wajib Belanja', pengguna: 'Pengguna & Login', pengaturan: 'Pengaturan' };
 
   function showPage(name) {
     document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
@@ -5279,6 +5389,182 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
   }
 
   function lvCetakPrint() {
+    window.print();
+  }
+
+  /* ---------------- LAPORAN PROGRAM WAJIB BELANJA ---------------- */
+
+  function fmtTanggalID(iso) {
+    var p = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+    return p ? p[3] + '/' + p[2] + '/' + p[1] : '';
+  }
+
+  function fmtTanggalLong(iso) {
+    var p = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+    if (!p) return '-';
+    var nm = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][parseInt(p[2], 10) - 1];
+    return parseInt(p[3], 10) + ' ' + nm + ' ' + p[1];
+  }
+
+  function filterLaporanWjb() {
+    loadLaporanWjb(true);
+  }
+
+  function loadLaporanWjb(force) {
+    var key = String($('wjb-tahun').value || '');
+    if (!force && STATE.wjbAll && STATE.wjbKey === key) { renderLaporanWjb(); return; }
+    busy(true, 'Menyusun laporan wajib belanja...');
+    google.script.run
+      .withSuccessHandler(function (d) {
+        busy(false);
+        if (!d.ok) { showToast(d.message || 'Gagal memuat laporan wajib belanja.', true); return; }
+        $('wjb-sumber').textContent = d.message || '';
+        var cur = String(d.tahunPilih || '');
+        var t = $('wjb-tahun');
+        var html = (d.tahun || []).map(function (y) { return '<option value="' + y + '">' + y + '</option>'; }).join('');
+        t.innerHTML = html;
+        if ((d.tahun || []).indexOf(cur) > -1) t.value = cur;
+        else if ((d.tahun || []).length) t.value = String(d.tahun[0]);
+        STATE.wjbAll = d;
+        STATE.wjbKey = key;
+        renderLaporanWjb();
+      })
+      .withFailureHandler(function (e) { busy(false); showToast('Error laporan wajib belanja: ' + e.message, true); })
+      .getLaporanWajibBelanja({ tahun: $('wjb-tahun').value || '', token: SESSION.token });
+  }
+
+  function renderLaporanWjb() {
+    var d = STATE.wjbAll;
+    if (!d) return;
+    $('wjb-per').textContent = fmtTanggalLong(d.dataUpdate);
+    $('wjb-update').textContent = 'Data update: ' + fmtTanggalID(d.dataUpdate);
+    var rows = (d.bulanan || []).slice();
+    var t = d.bulananTotal || {};
+    var tb = $('tabel-wjb-bulanan');
+    if (!rows.length) {
+      tb.innerHTML = '<tr><td colspan="9" class="empty">Belum ada data penerbitan voucher pada periode ini.</td></tr>';
+      $('foot-wjb-bulanan').innerHTML = '';
+    } else {
+      tb.innerHTML = rows.map(function (r, i) {
+        return '<tr>' +
+          '<td>' + (i + 1) + '</td>' +
+          '<td>' + esc(bulanLabel(r.bulan)) + '</td>' +
+          '<td class="text-end">' + r.diterbitkanJml + '</td>' +
+          '<td class="money">' + formatIDR(r.diterbitkanNominal) + '</td>' +
+          '<td class="text-end">' + r.redeemJml + '</td>' +
+          '<td class="money">' + formatIDR(r.redeemNominal) + '</td>' +
+          '<td class="text-end">' + r.sisaJml + '</td>' +
+          '<td class="money">' + formatIDR(r.sisaNominal) + '</td>' +
+          '<td class="text-end fw-bold">' + r.persen + '%</td>' +
+          '</tr>';
+      }).join('');
+      $('foot-wjb-bulanan').innerHTML = '<tr>' +
+        '<td colspan="2" class="text-end fw-bold">TOTAL</td>' +
+        '<td class="text-end fw-bold">' + t.diterbitkanJml + '</td>' +
+        '<td class="money fw-bold">' + formatIDR(t.diterbitkanNominal) + '</td>' +
+        '<td class="text-end fw-bold">' + t.redeemJml + '</td>' +
+        '<td class="money fw-bold">' + formatIDR(t.redeemNominal) + '</td>' +
+        '<td class="text-end fw-bold">' + t.sisaJml + '</td>' +
+        '<td class="money fw-bold">' + formatIDR(t.sisaNominal) + '</td>' +
+        '<td class="text-end fw-bold">' + (t.persen || 0) + '%</td>' +
+        '</tr>';
+    }
+    var os = (d.outlet || []).slice();
+    var ot = d.outletTotal || {};
+    var to = $('tabel-wjb-outlet');
+    if (!os.length) {
+      to.innerHTML = '<tr><td colspan="4" class="empty">Belum ada data redeem voucher pada periode ini.</td></tr>';
+      $('foot-wjb-outlet').innerHTML = '';
+    } else {
+      to.innerHTML = os.map(function (o, i) {
+        return '<tr><td>' + (i + 1) + '</td><td>' + esc(o.outlet) + '</td><td class="money">' + formatIDR(o.nominal) + '</td><td class="text-end">' + o.jml + '</td></tr>';
+      }).join('');
+      $('foot-wjb-outlet').innerHTML = '<tr><td colspan="2" class="text-end fw-bold">TOTAL</td><td class="money fw-bold">' + formatIDR(ot.nominal) + '</td><td class="text-end fw-bold">' + ot.jml + '</td></tr>';
+    }
+  }
+
+  function wjbExportData() {
+    var d = STATE.wjbAll || {};
+    var rows = (d.bulanan || []).map(function (r, i) {
+      return { 'NO': i + 1, 'BULAN': bulanLabel(r.bulan), 'DITERBITKAN (LEMBAR)': r.diterbitkanJml, 'DITERBITKAN (NOMINAL)': r.diterbitkanNominal, 'REDEEM (LEMBAR)': r.redeemJml, 'REDEEM (NOMINAL)': r.redeemNominal, 'SISA (LEMBAR)': r.sisaJml, 'SISA (NOMINAL)': r.sisaNominal, 'REALISASI (%)': r.persen };
+    });
+    var h1 = ['NO', 'BULAN', 'DITERBITKAN (LEMBAR)', 'DITERBITKAN (NOMINAL)', 'REDEEM (LEMBAR)', 'REDEEM (NOMINAL)', 'SISA (LEMBAR)', 'SISA (NOMINAL)', 'REALISASI (%)'];
+    var out = (d.outlet || []).map(function (o, i) {
+      return { 'NO': i + 1, 'OUTLET': o.outlet, 'NOMINAL': o.nominal, 'JML VOUCHER': o.jml };
+    });
+    var h2 = ['NO', 'OUTLET', 'NOMINAL', 'JML VOUCHER'];
+    return { headers1: h1, rows1: rows, headers2: h2, rows2: out };
+  }
+
+  function wjbExport() {
+    var e = wjbExportData();
+    if (!e.rows1.length && !e.rows2.length) { showToast('Belum ada data laporan wajib belanja untuk diexport.', true); return; }
+    if (!window.XLSX) { showToast('Library export belum dimuat. Muat ulang halaman.', true); return; }
+    try {
+      var aoa = e.rows1.map(function (r) { return e.headers1.map(function (h) { return r[h] === undefined || r[h] === null ? '' : r[h]; }); });
+      var aoa2 = e.rows2.map(function (r) { return e.headers2.map(function (h) { return r[h] === undefined || r[h] === null ? '' : r[h]; }); });
+      var wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([e.headers1].concat(aoa)), 'Rekap Bulanan');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([e.headers2].concat(aoa2)), 'Per Outlet');
+      XLSX.writeFile(wb, 'Laporan_wajib_belanja_' + todayStr() + '.xlsx');
+      showToast('Berhasil export ke Excel (2 sheet).');
+    } catch (err) {
+      showToast('Gagal export Excel: ' + err.message, true);
+    }
+  }
+
+  function wjbExportCsv() {
+    var e = wjbExportData();
+    if (!e.rows1.length) { showToast('Belum ada data rekap bulanan untuk diexport.', true); return; }
+    downloadCsv('Laporan_wajib_belanja_rekap_' + todayStr(), e.headers1, e.rows1);
+  }
+
+  function wjbCetakHtml() {
+    var d = STATE.wjbAll || {};
+    var t = d.bulananTotal || {};
+    var trs = (d.bulanan || []).map(function (r, i) {
+      return '<tr><td class="num">' + (i + 1) + '</td><td>' + esc(bulanLabel(r.bulan)) + '</td>' +
+        '<td class="num">' + r.diterbitkanJml + '</td><td class="num">' + formatIDR(r.diterbitkanNominal) + '</td>' +
+        '<td class="num">' + r.redeemJml + '</td><td class="num">' + formatIDR(r.redeemNominal) + '</td>' +
+        '<td class="num">' + r.sisaJml + '</td><td class="num">' + formatIDR(r.sisaNominal) + '</td>' +
+        '<td class="num">' + r.persen + '%</td></tr>';
+    }).join('');
+    var foot1 = '<tr class="lv-total"><td colspan="2" class="num">TOTAL</td>' +
+      '<td class="num">' + t.diterbitkanJml + '</td><td class="num">' + formatIDR(t.diterbitkanNominal) + '</td>' +
+      '<td class="num">' + t.redeemJml + '</td><td class="num">' + formatIDR(t.redeemNominal) + '</td>' +
+      '<td class="num">' + t.sisaJml + '</td><td class="num">' + formatIDR(t.sisaNominal) + '</td>' +
+      '<td class="num">' + (t.persen || 0) + '%</td></tr>';
+    var ot = d.outletTotal || {};
+    var trs2 = (d.outlet || []).map(function (o, i) {
+      return '<tr><td class="num">' + (i + 1) + '</td><td>' + esc(o.outlet) + '</td><td class="num">' + formatIDR(o.nominal) + '</td><td class="num">' + o.jml + '</td></tr>';
+    }).join('');
+    var foot2 = '<tr class="lv-total"><td colspan="2" class="num">TOTAL</td><td class="num">' + formatIDR(ot.nominal) + '</td><td class="num">' + ot.jml + '</td></tr>';
+    return '<div class="lv-cetak-head"><h5 style="margin:0">SPARTA KOPINKA</h5>' +
+      '<div style="font-weight:700;font-size:13px">LAPORAN PROGRAM WAJIB BELANJA ANGGOTA (PER ' + fmtTanggalLong(d.dataUpdate) + ')</div>' +
+      '<div style="font-size:11px">Data update: ' + fmtTanggalID(d.dataUpdate) + '</div></div>' +
+      '<div style="font-size:12px;font-weight:700;margin:8px 0 4px">A. REKAPITULASI BULANAN</div>' +
+      '<table><thead><tr><th rowspan="2">NO</th><th rowspan="2">BULAN</th>' +
+      '<th colspan="2">VOUCHER YG DITERBITKAN</th><th colspan="2">REDEEM VOUCHER</th><th colspan="2">SISA YG BELUM DIGUNAKAN</th><th rowspan="2">REALISASI</th></tr>' +
+      '<tr><th>Lembar</th><th>Nominal</th><th>Lembar</th><th>Nominal</th><th>Lembar</th><th>Nominal</th></tr></thead>' +
+      '<tbody>' + trs + '</tbody><tfoot>' + foot1 + '</tfoot></table>' +
+      '<div style="font-size:12px;font-weight:700;margin:14px 0 4px">B. DETAIL PENGGUNAAN VOUCHER PER OUTLET</div>' +
+      '<table><thead><tr><th>NO</th><th>OUTLET</th><th>NOMINAL</th><th>JML VOUCHER</th></tr></thead>' +
+      '<tbody>' + trs2 + '</tbody><tfoot>' + foot2 + '</tfoot></table>' +
+      '<div style="margin-top:28px;text-align:right">Disusun oleh,<div style="height:52px"></div>______________________</div>';
+  }
+
+  function wjbCetak() {
+    var e = wjbExportData();
+    if (!e.rows1.length && !e.rows2.length) { showToast('Belum ada data laporan wajib belanja untuk dicetak.', true); return; }
+    $('wjb-cetak').innerHTML = wjbCetakHtml();
+    bukaModal('modal-wjb-cetak');
+  }
+
+  function wjbCetakTutup() {
+    tutupModal('modal-wjb-cetak');
+  }
+
+  function wjbCetakPrint() {
     window.print();
   }
 
