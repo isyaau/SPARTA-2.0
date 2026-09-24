@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.37';
+var APP_VERSION = '2.0.38';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -5296,26 +5296,6 @@ function login(data) {
 
 function tokenBaru_() {
   return Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '').slice(0, 8);
-}
-
-function bridgePing() {
-  var r = { ok: true, pong: 'pong', mainId: SPARTA_MAIN_ID };
-  try {
-    var a = SpreadsheetApp.getActiveSpreadsheet();
-    r.active = a ? String(a.getId()) : 'null';
-  } catch (e) {
-    r.active = 'THROW: ' + e.message;
-  }
-  try {
-    var s = SpreadsheetApp.openById(SPARTA_MAIN_ID);
-    r.name = s.getName();
-    var sh = s.getSheetByName(SHEET_NAMES.USERS);
-    r.usersSheet = !!sh;
-    r.usersRows = sh ? sh.getLastRow() : 0;
-  } catch (e2) {
-    r.openErr = e2.message;
-  }
-  return r;
 }
 
 function hashPass_(pass) {
