@@ -2,6 +2,10 @@ name = "sparta-kopinka"
 main = "worker.js"
 compatibility_date = "2025-01-01"
 
+# Aplikasi di-host sebagai static asset (public/index.html = salinan Index.html).
+# Di-sinkronkan saat rilis: Copy-Item Index.html cloudflare\public\index.html
+assets = { directory = "./public", binding = "ASSETS" }
+
 # Ganti sparta.kopinka.com sesuai domain Anda.
 # Pastikan nama domain sudah aktif di Cloudflare (zone ditambahkan).
 routes = [

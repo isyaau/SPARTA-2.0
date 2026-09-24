@@ -9,10 +9,13 @@ Setiap kali membuat perubahan kode pada project ini, WAJIB langsung:
    - `Index.html` -> `<div ... id="login-version">vX.Y.Z</div>`
    - `Index.html` -> `<small ...>vX.Y.Z</small>` (footer sidebar)
 2. Validasi sintaks HTML/JS sebelum commit:
-   `$c = Get-Content -Raw "Index.html"; $m = [regex]::Matches($c, '(?s)<script>(.*?)</script>'); $i=0; foreach($x in $m){ $i++; $x.Groups[1].Value | Out-File -Encoding utf8 "$env:TEMP\chk$i.js" }; node --check "$env:TEMP\chk1.js"; node --check "$env:TEMP\chk2.js"`
+   `$c = Get-Content -Raw "Index.html"; $m = [regex]::Matches($c, '(?s)<script>(.*?)</script>'); $i=0; foreach($x in $m){ $i++; $x.Groups[1].Value | Out-File -Encoding utf8 "$env:TEMP\chk$i.js" }; Get-ChildItem "$env:TEMP\chk*.js" | ForEach-Object { node --check $_.FullName }`
 3. Commit dengan format pesan: `vX.Y.Z: <ringkasan perubahan>`
 4. Push ke `origin main`
 5. Deploy ke Apps Script (web app test)
+6. Deploy Worker (sinkronkan asset aplikasi `sparta.kopinka.com`):
+   `Copy-Item -Force Index.html cloudflare\public\index.html`
+   `cmd /c "wrangler deploy"` (dari folder `cloudflare`)
 
 Tidak perlu menunggu diminta lagi; lakukan semuanya sampai deploy selesai.
 
@@ -28,14 +31,20 @@ git push origin main
 
 # deploy (proyek aktif = SPARTA MAIN; .clasp.json sudah diarahkan ke scriptId proyek tersebut)
 cmd /c "clasp push -f"
-cmd /c "clasp deploy -i AKfycbzOyxDPX0ifsL0A7d0KFrQ7UOqQaw67U8C1RHx0M8rz1q8eRfjShm2yzq3aWP7YRcIs4A -d v2.0.33"
+cmd /c "clasp deploy -i AKfycbzOyxDPX0ifsL0A7d0KFrQ7UOqQaw67U8C1RHx0M8rz1q8eRfjShm2yzq3aWP7YRcIs4A -d v2.0.34"
+
+# deploy worker + sinkronisasi asset aplikasi (Index.html -> public/index.html)
+Copy-Item -Force Index.html cloudflare\public\index.html
+cmd /c "wrangler deploy"   # jalankan dari folder cloudflare
 ```
 
 Setara dengan `npm run deploy` (butuh clasp global; `node_modules` tidak diinstal).
 
-## Keadaan terakhir (v2.0.33)
+## Keadaan terakhir (v2.0.34)
 
-- **Web app bisa diakses siapa saja (login aplikasi), + Cloudflare Worker gateway** (v2.0.33): `appsscript.json` `webapp.access` = `ANYONE_ANONYMOUS` (tidak perlu login Google, cukup login aplikasi SPARTA; `executeAs` tetap `USER_DEPLOYING`). `cloudflare/worker.js` + `wrangler.toml` (custom domain `sparta.kopinka.com`) menyajikan **landing page brand SPARTA** dgn tombol "Buka Aplikasi" → exec url GAS `AKfycbzOyxDPX0...`, + favicon. JANGAN coba reverse-proxy/iframe penuh lagi — sudah dibuktikan via headless Chrome & perbandingan deployment:
+- **Aplikasi di-host penuh di `sparta.kopinka.com` + bridge Apps Script Execution API** (v2.0.34): Worker kini menyajikan aplikasi (copy `Index.html` = `cloudflare/public/index.html` + `assets` wrangler) langsung di domain sendiri; di `Index.html` ada **Runtime Bridge** yang mengganti `google.script.run` → `fetch POST /api` (aktif hanya saat host bukan `script.google.com`; jalur GAS asli tetap native). Worker `/api` → OAuth2 JWT RS256 dari service account (secret `GOOGLE_SA_JSON` — `wrangler secret put GOOGLE_SA_JSON`) → `script.projects.run` dengan `devMode:false` (menjalankan versi deployment terbaru, sama dgn /exec). **Setup 1x**: (a) GCP: enable Apps Script API + buat service account + key JSON; (b) SA ditambah sebagai **Editor** proyek Apps Script SPARTA MAIN (`1Xsg8Dqo...`); (c) SA diberi **Can edit** ke SPARTA MAIN (`1AJ5C-sKWympMrCJssqd-ahid3P6MAhy572T11_83GH8`), MyKopinka MAIN (`19E5XHD...`), HRIS MAIN (`1cmW56...`); (d) `wrangler secret put GOOGLE_SA_JSON` lalu `wrangler deploy`. Uji: `Invoke-WebRequest https://sparta.kopinka.com/api -Method Post -Body '{"fn":"<fungsi ringan>","args":[]}'`.
+- **Kode siap eksekusi detached** (bagian dari v2.0.34): konstanta `SPARTA_MAIN_ID = '1AJ5C-sKWympMrCJssqd-ahid3P6MAhy572T11_83GH8'`; `getSpreadsheet_()` & semua `getActiveSpreadsheet()` dialihkan ke `ssMain_()` (pakai active bila ada, fallback `openById(SPARTA_MAIN_ID)`); `localSpreadsheetId_()` fallback ke `SPARTA_MAIN_ID`. Setara saat dijalankan via menu editor/web app bound maupun Execution API.
+- **Web app bisa diakses siapa saja (login aplikasi), + dulu landing page gateway** (v2.0.33) `appsscript.json` `webapp.access` = `ANYONE_ANONYMOUS` (tidak perlu login Google, cukup login aplikasi SPARTA; `executeAs` tetap `USER_DEPLOYING`). `cloudflare/worker.js` + `wrangler.toml` (custom domain `sparta.kopinka.com`) menyajikan **landing page brand SPARTA** dgn tombol "Buka Aplikasi" → exec url GAS `AKfycbzOyxDPX0...`, + favicon. JANGAN coba reverse-proxy/iframe penuh lagi — sudah dibuktikan via headless Chrome & perbandingan deployment:
 - iframe-embed/exec-url GAS kirim `X-Frame-Options SAMEORIGIN` (+ CSP `frame-ancestors 'self'`) hingga browser menolak frame ("Refused to display ... X-Frame-Options");
 - reverse-proxy penuh ditolak client mae ("posting uri is not valid");
 - header anti-frame hanya ada di **deployment baru**: deployment lama (contoh iframe Sikontak `AKfycbwDio...`, sikontak-proyek @9) TIDAK mengirim header tsb → bisa di-iframe; manifest (`webapp.executeAs/access`) identik, jadi TIDAK ada setting yang bisa mematikan header — kebijakan server Google oleh umur deployment.

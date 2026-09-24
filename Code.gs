@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.33';
+var APP_VERSION = '2.0.34';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -29,6 +29,11 @@ var AVATAR_FOLDER_ID = '1hqHPBr0duB5Ffyrmy5K7mzcpzMZ8DWC';
 
 // Folder Google Drive untuk foto bukti transaksi piutang karyawan
 var BUKTI_PIUTANG_FOLDER_ID = '1hqHPBr0duB5Ffyrmy5K7mzcpzMZ8DWC';
+
+// Workbook utama SPARTA MAIN (sheet mirror, USERS, PENGATURAN, dst).
+// Dipakai saat dieksekusi lewat Apps Script Execution API (tidak ada
+// "active spreadsheet"); fallback getId() di localSpreadsheetId_.
+var SPARTA_MAIN_ID = '1AJ5C-sKWympMrCJssqd-ahid3P6MAhy572T11_83GH8';
 
 /**
  * KONFIGURASI (ubah langsung di sini)
@@ -109,7 +114,7 @@ function onInstall() {
 }
 
 function setupDatabase() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = ssMain_();
   var wajib = [SHEET_NAMES.PENGATURAN, SHEET_NAMES.USERS, SHEET_NAMES.UNIT].concat([
     SPARTA_SHEET_NAMES.PIUTANG_KARYAWAN, SPARTA_SHEET_NAMES.PIUTANG_ANGGOTA,
     SPARTA_SHEET_NAMES.MUTASI_KARYAWAN, SPARTA_SHEET_NAMES.MUTASI_ANGGOTA,
@@ -188,7 +193,7 @@ function getSummarySheet_() {}
 
 /** Pastikan sheet Pengaturan memakai layout [ID | Key | Value] bila masih kosong. */
 function ensurePengaturanLayout_() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAMES.PENGATURAN);
+  var sheet = ssMain_().getSheetByName(SHEET_NAMES.PENGATURAN);
   if (!sheet) return;
   var lr = sheet.getLastRow();
   if (lr > 0) {
@@ -275,9 +280,16 @@ function include(filename) {
 /** HELPERS                                                             */
 /** ------------------------------------------------------------------ */
 
+/** Spreadsheet utama SPARTA. Saat konteks "active spreadsheet" tersedia
+ *  (editor/menu, web app bound) dipakai aktif; bila tidak (Apps Script
+ *  Execution API), jatuh ke workbook SPARTA MAIN via id. */
+function ssMain_() {
+  try { var a = SpreadsheetApp.getActiveSpreadsheet(); if (a) return a; } catch (e) {}
+  return SpreadsheetApp.openById(SPARTA_MAIN_ID);
+}
+
 function getSpreadsheet_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  return ss;
+  return ssMain_();
 }
 
 function getSheet_(name) {
@@ -1310,6 +1322,7 @@ var _localSsId_ = null;
 function localSpreadsheetId_() {
   if (_localSsId_) return _localSsId_;
   try { _localSsId_ = SpreadsheetApp.getActiveSpreadsheet().getId(); } catch (e) { _localSsId_ = ''; }
+  if (!_localSsId_) _localSsId_ = SPARTA_MAIN_ID;
   return _localSsId_;
 }
 
@@ -3547,7 +3560,7 @@ function getRedeemPage(data) {
 }
 
 function redeemPiutang(data) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = ssMain_();
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -5214,7 +5227,7 @@ function shiftDate(days) {
 
 function seedAdminUser_() {
   try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ss = ssMain_();
     var sheet = ss.getSheetByName(SHEET_NAMES.USERS);
     if (!sheet) return;
     if (sheet.getLastRow() > 1) return pewangiCache_();
@@ -5231,7 +5244,7 @@ function clearUsersCache_() {
 }
 
 function getUsersCache_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = ssMain_();
   var sheet = ss.getSheetByName(SHEET_NAMES.USERS);
   if (!sheet) return [];
   return getObjects_(sheet).map(function (u) {
@@ -5361,7 +5374,7 @@ function simpanUser(token, data) {
   if (!admin) return getErrorObj_('Sesi berakhir.');
   if (String(admin.Role).toLowerCase() !== 'admin') return getErrorObj_('Hanya admin yang dapat mengelola pengguna.');
   try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ss = ssMain_();
     var sheet = ss.getSheetByName(SHEET_NAMES.USERS);
     if (!sheet) return getErrorObj_('Sheet Users belum dibuat. Jalankan Setup Database.');
 
@@ -5405,7 +5418,7 @@ function hapusUser(token, username) {
   if (String(admin.Role).toLowerCase() !== 'admin') return getErrorObj_('Hanya admin yang dapat menghapus pengguna.');
   if (String(admin.Username) === String(username)) return getErrorObj_('Tidak dapat menghapus akun sendiri.');
   try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ss = ssMain_();
     var sheet = ss.getSheetByName(SHEET_NAMES.USERS);
     if (!sheet) return getErrorObj_('Sheet Users belum dibuat.');
     var rows = sheet.getLastRow() > 1 ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 1).getValues() : [];
@@ -5466,7 +5479,7 @@ function updateProfil(token, data) {
   var u = validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
   try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ss = ssMain_();
     var sheet = ss.getSheetByName(SHEET_NAMES.USERS);
     if (!sheet) return getErrorObj_('Sheet Users belum dibuat. Jalankan Setup Database.');
 
@@ -5509,7 +5522,7 @@ function pasangFotoUser(token, fileId) {
   var u = validasiSesi(token);
   if (!u) return getErrorObj_('Sesi berakhir.');
   try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var ss = ssMain_();
     var sheet = ss.getSheetByName(SHEET_NAMES.USERS);
     if (!sheet) return getErrorObj_('Sheet Users belum dibuat.');
     var rows = sheet.getLastRow() > 1 ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getValues() : [];
@@ -5545,7 +5558,7 @@ function diagnostik() {
   idc('PIUTANG anggota', PIUTANG_ANGGOTA_SPREADSHEET_ID, PIUTANG_ANGGOTA_SHEET_NAME || 'Piutang');
   idc('PIUTANG karyawan', PIUTANG_KARYAWAN_SPREADSHEET_ID, PIUTANG_KARYAWAN_SHEET_NAME || 'Piutang');
   try {
-    var main = SpreadsheetApp.getActiveSpreadsheet();
+    var main = ssMain_();
     ['karyawan', 'anggota'].forEach(function (kind) {
       ['voucher', 'piutang', 'mutasi', 'trx'].forEach(function (table) {
         var sh = getSpartaMirrorSheet_(kind, table);
