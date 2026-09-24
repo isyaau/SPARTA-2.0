@@ -28,14 +28,16 @@ git push origin main
 
 # deploy (proyek aktif = SPARTA MAIN; .clasp.json sudah diarahkan ke scriptId proyek tersebut)
 cmd /c "clasp push -f"
-cmd /c "clasp deploy -i AKfycbzOyxDPX0ifsL0A7d0KFrQ7UOqQaw67U8C1RHx0M8rz1q8eRfjShm2yzq3aWP7YRcIs4A -d v2.0.32"
+cmd /c "clasp deploy -i AKfycbzOyxDPX0ifsL0A7d0KFrQ7UOqQaw67U8C1RHx0M8rz1q8eRfjShm2yzq3aWP7YRcIs4A -d v2.0.33"
 ```
 
 Setara dengan `npm run deploy` (butuh clasp global; `node_modules` tidak diinstal).
 
-## Keadaan terakhir (v2.0.32)
+## Keadaan terakhir (v2.0.33)
 
-- **Alihkan ke sumber & target MAIN** (v2.0.32): source data dipindah dari dev ke **MyKopinka MAIN** (`19E5XHDmDdozgqOuonxxINZSxdJzlOq54pBQPK8lijrE`; voucher/piutang/data/notif anggota) dan **HRIS MAIN** (`1cmW56ti-flwoHLp_hG4P2stbMQ2ZwR-u6XgXWTVKd28`; voucher/piutang/data/notif karyawan) di konstanta `Code.gs` (VOUCHER_/PIUTANG_/DATA_/NOTIF_*); target deploy `.clasp.json` = proyek **SPARTA MAIN** (`1Xsg8Dqo6sXaiYyRp2_vyLo0HspFI27X27RVRsONRSf7C_jNuPhpw4Txa`, sebelumnya berisi kode lama v1.6.x — sudah ditimpa v2.0.32), deployment baru `AKfycbzOyxDPX0...` @77. Setelah ini, jalankan **Sinkronisasi Data** di workbook SPARTA MAIN agar mirror terisi dari MyKopinka MAIN / HRIS MAIN.
+- **Web app bisa diakses siapa saja (login aplikasi), + Cloudflare Worker proxy** (v2.0.33): `appsscript.json` `webapp.access` = `ANYONE_ANONYMOUS` (tidak perlu login Google, cukup login aplikasi SPARTA; `executeAs` tetap `USER_DEPLOYING`). Aplikasi disajikan di domain sendiri via Cloudflare Worker `cloudflare/worker.js` (`wrangler.toml` route custom domain `sparta.kopinka.com`) — reverse-proxy server-side ke exec url GAS `AKfycbzOyxDPX0...`, rewrite URL `script.google.com/.../macros/s/...` ke origin Worker, langsung (bukan redirect). Versi sebelumnya `MYSELF` — jangan balik ke sana tanpa alasan.
+
+- **Alihkan ke sumber & target MAIN** (v2.0.32): source data dipindah dari dev ke **MyKopinka MAIN** (`19E5XHDmDdozgqOuonxxINZSxdJzlOq54pBQPK8lijrE`; voucher/piutang/data/notif anggota) dan **HRIS MAIN** (`1cmW56ti-flwoHLp_hG4P2stbMQ2ZwR-u6XgXWTVKd28`; voucher/piutang/data/notif karyawan) di konstanta `Code.gs` (VOUCHER_/PIUTANG_/DATA_/NOTIF_*); target deploy `.clasp.json` = proyek **SPARTA MAIN** (`1Xsg8Dqo6sXaiYyRp2_vyLo0HspFI27X27RVRsONRSf7C_jNuPhpw4Txa`, sebelumnya berisi kode lama v1.6.x — sudah ditimpa v2.0.32), deployment baru `AKfycbzOyxDPX0...` @77.
 - **Audit Redeem: rekap selisih per kode voucher** (v2.0.31): kartu baru `Rekap Selisih Per Kode Voucher (temuan data)` memecah selisih per-voucher — kode/identitas/nama/status/bulan terbit + jenis selisih (Used tanpa mutasi, multi mutasi, nominal tidak sama, status tidak konsisten, mutasi tanpa voucher), nilai voucher vs total redeem + selisih Rp (positif/negatif), TOTAL di footer; baris `Nominal tidak sama` ikut diexport. Backend `getAuditRedeem`.
 - **Audit Redeem: rekap per bulan kini attach balik ke bulan terbit** (v2.0.30): baris redeem di-attach ke bulan voucher terbit via kode voucher (`bulanKey_(v.AktifMulai)`); mutasi tanpa voucher induk tetap dihitung pada bulan transaksinya — voucher yang diperpanjang jadi tidak menimbulkan selisih palsu. Label kolom tabel jadi `Redeem (lembar/Rp)`.
 - **Tema senada merah** (v2.0.29): override CSS menetralkan sisa warna biru bawaan Bootstrap ke palet merah (`--primary:#dc2626`) — `text/bg/border-primary`, `btn-primary/outline-primary/info`, link, pagination, fokus input/select, checkbox, dropdown aktif.
