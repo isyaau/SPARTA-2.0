@@ -1,0 +1,9 @@
+name = "sparta-kopinka"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Ganti sparta.kopinka.com sesuai domain Anda.
+# Pastikan nama domain sudah aktif di Cloudflare (zone ditambahkan).
+routes = [
+  { pattern = "sparta.kopinka.com", custom_domain = true }
+]
