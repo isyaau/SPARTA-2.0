@@ -2,3 +2,5 @@ node_modules/
 .clasprc.json
 .clasp.json
 package-lock.json
+.wrangler/
+cloudflare/.wrangler/
