@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.31';
+var APP_VERSION = '2.0.32';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -33,42 +33,42 @@ var BUKTI_PIUTANG_FOLDER_ID = '1hqHPBr0duB5Ffyrmy5K7mzcpzMZ8DWC';
 /**
  * KONFIGURASI (ubah langsung di sini)
  */
-// Voucher ANGGOTA (sheet "Voucher" di MyKopinka)
-var VOUCHER_SPREADSHEET_ID = '1z47xmDUep-X37mOo3aa5LVt0-g0CouGFpKq0wKP626s';
+// Voucher ANGGOTA (sheet "Voucher" di MyKopinka MAIN)
+var VOUCHER_SPREADSHEET_ID = '19E5XHDmDdozgqOuonxxINZSxdJzlOq54pBQPK8lijrE';
 var VOUCHER_SHEET_NAME = 'Voucher';
 
-// Voucher KARYAWAN (sheet "Voucher" di HRIS)
-var VOUCHER_KARYAWAN_SPREADSHEET_ID = '19vCyTDfnwI2ImQinHoPVJSI4IeN4nCJMAWM8E9f8v6Y';
+// Voucher KARYAWAN (sheet "Voucher" di HRIS MAIN)
+var VOUCHER_KARYAWAN_SPREADSHEET_ID = '1cmW56ti-flwoHLp_hG4P2stbMQ2ZwR-u6XgXWTVKd28';
 var VOUCHER_KARYAWAN_SHEET_NAME = 'Voucher';
 
-// Piutang KARYAWAN (sheet "Piutang" di HRIS)
-var PIUTANG_KARYAWAN_SPREADSHEET_ID = '19vCyTDfnwI2ImQinHoPVJSI4IeN4nCJMAWM8E9f8v6Y';
+// Piutang KARYAWAN (sheet "Piutang" di HRIS MAIN)
+var PIUTANG_KARYAWAN_SPREADSHEET_ID = '1cmW56ti-flwoHLp_hG4P2stbMQ2ZwR-u6XgXWTVKd28';
 var PIUTANG_KARYAWAN_SHEET_NAME = 'Piutang';
 
-// Mutasi Voucher (sheet "Mutasi" di MyKopinka / HRIS, dua arah)
+// Mutasi Voucher (sheet "Mutasi" di MyKopinka / HRIS MAIN, dua arah)
 var MUTASI_ANGGOTA_SHEET_NAME = 'Mutasi';
 var MUTASI_KARYAWAN_SHEET_NAME = 'Mutasi';
 
-// Data master KARYAWAN (sheet "Data_Karyawan" di HRIS)
-var DATA_KARYAWAN_SPREADSHEET_ID = '19vCyTDfnwI2ImQinHoPVJSI4IeN4nCJMAWM8E9f8v6Y';
+// Data master KARYAWAN (sheet "Data_Karyawan" di HRIS MAIN)
+var DATA_KARYAWAN_SPREADSHEET_ID = '1cmW56ti-flwoHLp_hG4P2stbMQ2ZwR-u6XgXWTVKd28';
 var DATA_KARYAWAN_SHEET_NAME = 'Data_Karyawan';
 
-// Data master ANGGOTA (sheet "Users" di MyKopinka, difilter Role = "Anggota")
-var DATA_ANGGOTA_SPREADSHEET_ID = '1z47xmDUep-X37mOo3aa5LVt0-g0CouGFpKq0wKP626s';
+// Data master ANGGOTA (sheet "Users" di MyKopinka MAIN, difilter Role = "Anggota")
+var DATA_ANGGOTA_SPREADSHEET_ID = '19E5XHDmDdozgqOuonxxINZSxdJzlOq54pBQPK8lijrE';
 var DATA_ANGGOTA_SHEET_NAME = 'Users';
 
 // Kolom sheet Piutang Karyawan (HRIS)
 var KOLOM_PIUTANG_KARYAWAN_EXT = ['Waktu', 'ID System', 'Nota Toko', 'Toko', 'Petugas', 'Nominal', 'NIP', 'Verifikasi', 'Status Notif'];
 
-// Piutang ANGGOTA (sheet "Piutang" di MyKopinka)
-var PIUTANG_ANGGOTA_SPREADSHEET_ID = '1z47xmDUep-X37mOo3aa5LVt0-g0CouGFpKq0wKP626s';
+// Piutang ANGGOTA (sheet "Piutang" di MyKopinka MAIN)
+var PIUTANG_ANGGOTA_SPREADSHEET_ID = '19E5XHDmDdozgqOuonxxINZSxdJzlOq54pBQPK8lijrE';
 var PIUTANG_ANGGOTA_SHEET_NAME = 'Piutang';
 var KOLOM_PIUTANG_ANGGOTA_EXT = ['Waktu', 'ID System', 'Nota Toko', 'Toko', 'Petugas', 'Nominal', 'No Anggota', 'Verifikasi', 'Status Notif'];
 
-// Notifikasi broadcast (sheet "Notifikasi" di MyKopinka/HRIS, kolom seragam)
-var NOTIF_ANGGOTA_SPREADSHEET_ID = '1z47xmDUep-X37mOo3aa5LVt0-g0CouGFpKq0wKP626s'; // MyKopinka
+// Notifikasi broadcast (sheet "Notifikasi" di MyKopinka/HRIS MAIN, kolom seragam)
+var NOTIF_ANGGOTA_SPREADSHEET_ID = '19E5XHDmDdozgqOuonxxINZSxdJzlOq54pBQPK8lijrE'; // MyKopinka MAIN
 var NOTIF_ANGGOTA_SHEET_NAME = 'Notifikasi';
-var NOTIF_KARYAWAN_SPREADSHEET_ID = '19vCyTDfnwI2ImQinHoPVJSI4IeN4nCJMAWM8E9f8v6Y'; // HRIS
+var NOTIF_KARYAWAN_SPREADSHEET_ID = '1cmW56ti-flwoHLp_hG4P2stbMQ2ZwR-u6XgXWTVKd28'; // HRIS MAIN
 var NOTIF_KARYAWAN_SHEET_NAME = 'Notifikasi';
 var KOLOM_NOTIF = ['Waktu', 'Tipe', 'Target', 'Detail Target', 'Judul', 'Pesan', 'Status', 'Lampiran', 'Pengirim Toko', 'Pengirim User', 'Dibaca Oleh'];
 
