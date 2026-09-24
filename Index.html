@@ -358,7 +358,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.30</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.31</div>
       </div>
     </div>
   </div>
@@ -393,7 +393,7 @@
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.30</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.31</small>
     </div>
   </aside>
 
@@ -1653,6 +1653,40 @@
               </tr>
             </thead>
             <tbody id="tabel-ar-bulan"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">
+          <h6 class="fw-bold mb-0"><i class="bi bi-search me-1"></i>Rekap Selisih Per Kode Voucher (temuan data)</h6>
+          <span class="dash-chip" id="ar-kode-count">-</span>
+        </div>
+        <div class="form-text mb-2">Satu baris per kode voucher yang bermasalah: status tidak konsisten, multi mutasi, nominal redeem tidak sama dengan nilai voucher, atau mutasi tanpa voucher induk. Positif = Used tanpa redeem; negatif = redeem tanpa/melebihi Used.</div>
+        <div class="table-responsive">
+          <table class="table table-hover table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="small text-muted">No</th>
+                <th class="small text-muted">Kode</th>
+                <th class="small text-muted"><span data-ar-id="5">No Anggota</span></th>
+                <th class="small text-muted">Nama</th>
+                <th class="small text-muted">Status</th>
+                <th class="small text-muted">Bulan (terbit)</th>
+                <th class="small text-muted">Jenis Selisih</th>
+                <th class="small text-muted text-end">Nilai Voucher</th>
+                <th class="small text-muted text-end">Jml Mutasi</th>
+                <th class="small text-muted text-end">Total Redeem</th>
+                <th class="small text-muted text-end">Selisih (Rp)</th>
+              </tr>
+            </thead>
+            <tbody id="tabel-ar-kode"></tbody>
+            <tfoot class="table-light"><tr>
+              <td colspan="10" class="text-end fw-bold">TOTAL SELISIH</td>
+              <td class="text-end fw-bold" id="foot-ar-kode"></td>
+            </tr></tfoot>
           </table>
         </div>
       </div>
@@ -5903,6 +5937,33 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
         return '<tr><td>' + esc(x.Kode) + '</td><td>' + esc(x.NoAnggota) + '</td><td>' + esc(x.Nama) + '</td><td class="money">' + formatIDR(x.Nilai) + '</td><td class="text-end">' + x.JumlahMutasi + '</td></tr>';
       }).join('');
     }
+
+    var ks = d.kodeSelisih || [];
+    var tk = $('tabel-ar-kode');
+    $('ar-kode-count').textContent = ks.length + ' kode ditemukan' + (d.kodeSelisihJml !== undefined ? ' · Total ' + formatIDR(d.kodeSelisihRp) : '');
+    if (!ks.length) {
+      tk.innerHTML = '<tr><td colspan="11" class="empty">Tidak ada kode voucher bermasalah.</td></tr>';
+      $('foot-ar-kode').textContent = 'Rp 0';
+    } else {
+      tk.innerHTML = ks.map(function (x, i) {
+        var cls = x.SelisihRp > 0 ? ' text-danger' : (x.SelisihRp < 0 ? ' text-primary' : '');
+        var bd = badge(x.Status);
+        return '<tr>' +
+          '<td>' + (i + 1) + '</td>' +
+          '<td>' + esc(x.Kode) + '</td>' +
+          '<td>' + esc(x.NoAnggota) + '</td>' +
+          '<td>' + esc(x.Nama) + '</td>' +
+          '<td>' + bd + '</td>' +
+          '<td>' + esc(x.Bulan) + '</td>' +
+          '<td>' + esc(x.Jenis) + '</td>' +
+          '<td class="money">' + formatIDR(x.NilaiVoucher) + '</td>' +
+          '<td class="text-end">' + x.JmlMutasi + '</td>' +
+          '<td class="money">' + formatIDR(x.TotalRedeem) + '</td>' +
+          '<td class="money' + cls + ' fw-bold">' + (x.SelisihRp > 0 ? '+' : '') + formatIDR(x.SelisihRp) + '</td>' +
+          '</tr>';
+      }).join('');
+      $('foot-ar-kode').textContent = (d.kodeSelisihRp > 0 ? '+' : '') + formatIDR(d.kodeSelisihRp);
+    }
   }
 
   function arRowsExport() {
@@ -5923,6 +5984,10 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
     });
     (d.multiMutasi || []).forEach(function (x) {
       out.push({ 'JENIS': 'Multi Mutasi', 'KODE': x.Kode, 'TANGGAL': x.AktifMulai, 'NILAI': x.Nilai, 'LEMBAR': x.JumlahMutasi, 'NO ANGGOTA': x.NoAnggota, 'NAMA': x.Nama, 'TOKO': '', 'STATUS': 'Used' });
+    });
+    (d.kodeSelisih || []).forEach(function (x) {
+      if (x.Jenis !== 'Nominal tidak sama') return;
+      out.push({ 'JENIS': 'Nominal Tidak Sama', 'KODE': x.Kode, 'TANGGAL': x.Bulan, 'NILAI': x.SelisihRp, 'LEMBAR': x.JmlMutasi, 'NO ANGGOTA': x.NoAnggota, 'NAMA': x.Nama, 'TOKO': '', 'STATUS': x.Status });
     });
     return { rows: out, headers: ['JENIS', 'KODE', 'TANGGAL', 'NILAI', 'LEMBAR', 'NO ANGGOTA', 'NAMA', 'TOKO', 'STATUS'] };
   }

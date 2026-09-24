@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.30';
+var APP_VERSION = '2.0.31';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -5091,6 +5091,60 @@ function getAuditRedeem(data) {
   statusMismatch = sortBy_(statusMismatch, 'AktifMulai');
   multiMutasi = sortBy_(multiMutasi, 'AktifMulai');
 
+  var kodeSelisih = [];
+  Object.keys(vm).forEach(function (kode) {
+    var v = vm[kode];
+    var rows = mm[kode] || [];
+    var tot = 0;
+    rows.forEach(function (m) { tot += cleanNum_(m.Nilai); });
+    tot = Math.round(tot * 100) / 100;
+    var isUsed = String(v.Status || '').toLowerCase() === 'used';
+    var nilai = cleanNum_(v.Nilai);
+    var jenis = '';
+    if (isUsed && !rows.length) jenis = 'Used tanpa mutasi';
+    else if (isUsed && rows.length > 1) jenis = 'Multi mutasi';
+    else if (!isUsed && rows.length) jenis = 'Status tidak konsisten';
+    else if (isUsed && rows.length === 1 && Math.round((tot - nilai) * 100) / 100 !== 0) jenis = 'Nominal tidak sama';
+    if (!jenis) return;
+    kodeSelisih.push({
+      Kode: kode,
+      NoAnggota: idOf(v),
+      Nama: v.Nama,
+      Status: v.Status,
+      Bulan: v.AktifMulai,
+      Jenis: jenis,
+      NilaiVoucher: nilai,
+      JmlMutasi: rows.length,
+      TotalRedeem: tot,
+      SelisihRp: Math.round(((isUsed ? nilai : 0) - tot) * 100) / 100
+    });
+  });
+  Object.keys(mm).forEach(function (kode) {
+    if (vm[kode]) return;
+    mm[kode].forEach(function (m) {
+      var n = cleanNum_(m.Nilai);
+      kodeSelisih.push({
+        Kode: kode,
+        NoAnggota: idOf(m),
+        Nama: m.Nama,
+        Status: '-',
+        Bulan: m.Waktu,
+        Jenis: 'Mutasi tanpa voucher',
+        NilaiVoucher: 0,
+        JmlMutasi: 1,
+        TotalRedeem: n,
+        SelisihRp: Math.round(-n * 100) / 100
+      });
+    });
+  });
+  kodeSelisih.sort(function (a, b) {
+    return String(a.Bulan || '').localeCompare(String(b.Bulan || '')) || String(a.Kode || '').localeCompare(String(b.Kode || ''));
+  });
+  var kodeSelisihJml = kodeSelisih.length;
+  var kodeSelisihRp = 0;
+  kodeSelisih.forEach(function (x) { kodeSelisihRp += x.SelisihRp; });
+  kodeSelisihRp = Math.round(kodeSelisihRp * 100) / 100;
+
   var msg = 'Pembanding: voucher berstatus "Used" (sheet Voucher) vs baris log redeem (sheet Mutasi). Rekap per bulan: redeem di-attach balik ke bulan terbit voucher (via kode voucher); mutasi yang kodenya tidak ketemu tetap dihitung pada bulan transaksinya.';
   return {
     ok: true,
@@ -5105,6 +5159,9 @@ function getAuditRedeem(data) {
     },
     labels: { id: isK ? 'NIP' : 'No Anggota' },
     bulan: bulan,
+    kodeSelisih: kodeSelisih,
+    kodeSelisihJml: kodeSelisihJml,
+    kodeSelisihRp: kodeSelisihRp,
     usedWithoutMutasi: usedWithoutMutasi,
     mutasiWithoutVoucher: mutasiWithoutVoucher,
     statusMismatch: statusMismatch,
