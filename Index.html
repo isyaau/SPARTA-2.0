@@ -39,6 +39,53 @@
     .badge.text-bg-danger { background-color: var(--danger); }
     .badge.text-bg-primary { background-color: var(--primary); }
     input[type="checkbox"], input[type="radio"] { accent-color: var(--primary); }
+
+    /* Senada merah: netralkan sisa warna biru bawaan Bootstrap */
+    :root {
+      --bs-primary: var(--primary);
+      --bs-primary-rgb: 220, 38, 38;
+      --bs-info: var(--danger);
+      --bs-info-rgb: 185, 28, 28;
+      --bs-link-color: var(--primary);
+      --bs-link-hover-color: var(--primary-dark);
+      --bs-link-color-rgb: 220, 38, 38;
+      --bs-link-hover-color-rgb: 153, 27, 27;
+    }
+    .text-primary { color: var(--primary) !important; }
+    .text-primary-emphasis { color: var(--primary-dark) !important; }
+    .text-info { color: var(--danger) !important; }
+    .bg-primary { background-color: var(--primary) !important; }
+    .bg-info { background-color: var(--danger) !important; }
+    .border-primary { border-color: var(--primary) !important; }
+    .btn-primary, .btn-info {
+      --bs-btn-color: #fff;
+      --bs-btn-bg: var(--primary);
+      --bs-btn-border-color: var(--primary);
+      --bs-btn-hover-bg: var(--primary-dark);
+      --bs-btn-hover-border-color: var(--primary-dark);
+      --bs-btn-active-bg: var(--primary-dark);
+      --bs-btn-active-border-color: var(--primary-dark);
+    }
+    .btn-outline-primary, .btn-outline-info {
+      --bs-btn-color: var(--primary);
+      --bs-btn-border-color: var(--primary);
+      --bs-btn-hover-bg: var(--primary);
+      --bs-btn-hover-border-color: var(--primary);
+      --bs-btn-hover-color: #fff;
+      --bs-btn-active-bg: var(--primary);
+      --bs-btn-active-border-color: var(--primary);
+      --bs-btn-active-color: #fff;
+    }
+    a { color: var(--primary); }
+    a:hover { color: var(--primary-dark); }
+    .page-link { color: var(--primary); }
+    .page-link:hover { color: var(--primary-dark); background: #fef2f2; }
+    .page-item.active .page-link { background-color: var(--primary); border-color: var(--primary); color: #fff; }
+    .page-item.disabled .page-link { color: var(--muted); }
+    .form-control:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 .2rem rgba(220,38,38,.25); }
+    .form-check-input:checked { background-color: var(--primary); border-color: var(--primary); }
+    .form-check-input:focus { border-color: var(--primary); box-shadow: 0 0 0 .2rem rgba(220,38,38,.25); }
+    .dropdown-item.active, .dropdown-item:active { background-color: var(--primary); }
     .topbar-title { color: var(--primary-dark); }
     body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
     html, body { margin: 0; padding: 0; }
@@ -311,7 +358,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.28</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.29</div>
       </div>
     </div>
   </div>
@@ -346,7 +393,7 @@
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.28</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.29</small>
     </div>
   </aside>
 
