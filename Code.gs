@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.23';
+var APP_VERSION = '2.0.24';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -4694,6 +4694,121 @@ function getLaporanData(data) {
     pages: r.pages,
     pageSize: r.pageSize
   };
+}
+
+/** ------------------------------------------------------------------ */
+/** LAPORAN VOUCHER ANGGOTA (rekap lembar & nilai voucher per anggota) */
+/** ------------------------------------------------------------------ */
+
+function statusVoucherRekap_(v) {
+  var s = String(v.Status || '').toLowerCase();
+  if (s === 'used') return 'used';
+  if (s === 'active') return 'active';
+  if (s.indexOf('expir') === 0) return 'expired';
+  return 'other';
+}
+
+function emptyLaporanVoucherSummary_() {
+  return {
+    anggota: 0,
+    used: 0, active: 0, expired: 0, activeExpired: 0,
+    nilaiUsed: 0, nilaiActive: 0, nilaiExpired: 0, nilaiActiveExpired: 0
+  };
+}
+
+function getLaporanVoucherAnggota(data) {
+  data = data || {};
+  var u = validasiSesi(String(data.token || '').trim());
+  if (!u) return { ok: false, message: 'Sesi berakhir. Silakan login kembali.', list: [], total: 0, page: 1, pages: 1, pageSize: 0, summary: emptyLaporanVoucherSummary_(), kelompok: [] };
+
+  var res = readMirrorSheet_('anggota', 'voucher', normalizeVoucher_, 'voucher anggota');
+  if (!res.ok) return { ok: false, message: res.message, list: [], total: 0, page: 1, pages: 1, pageSize: 0, summary: emptyLaporanVoucherSummary_(), kelompok: [] };
+
+  var da = readDataAnggotaExt_();
+  var amap = {};
+  if (da && da.ok) da.list.forEach(function (a) {
+    var no = String(a.NoAnggota || '');
+    if (no && !amap[no]) amap[no] = a;
+  });
+
+  var paket = {};
+  (res.list || []).forEach(function (v) {
+    var rawNo = formatCell_(v.NoAnggota);
+    var no = rawNo.replace(/^A/i, '');
+    if (!no) return;
+    var src = amap[no] || amap['A' + no] || amap[rawNo] || {};
+    var p = paket[no] || {
+      NoAnggota: formatCell_(src.NoAnggota || rawNo || no),
+      Nama: formatCell_(src.Nama || v.Nama),
+      NIP: formatCell_(src.NIP),
+      Kelompok: formatCell_(src.Kelompok || v.Kelompok),
+      used: 0, active: 0, expired: 0,
+      nilaiUsed: 0, nilaiActive: 0, nilaiExpired: 0
+    };
+    if (!p.Nama) p.Nama = formatCell_(v.Nama);
+    if (!p.Kelompok) p.Kelompok = formatCell_(v.Kelompok);
+    var kat = statusVoucherRekap_(v);
+    var nilai = cleanNum_(v.Nilai);
+    if (kat === 'used') { p.used += 1; p.nilaiUsed += nilai; }
+    else if (kat === 'active') { p.active += 1; p.nilaiActive += nilai; }
+    else if (kat === 'expired') { p.expired += 1; p.nilaiExpired += nilai; }
+    paket[no] = p;
+  });
+
+  var group = Object.keys(paket).map(function (no) {
+    var p = paket[no];
+    return {
+      NoAnggota: p.NoAnggota,
+      Nama: p.Nama,
+      NIP: p.NIP,
+      Kelompok: p.Kelompok,
+      used: p.used,
+      active: p.active,
+      expired: p.expired,
+      activeExpired: p.active + p.expired,
+      nilaiUsed: Math.round(p.nilaiUsed * 100) / 100,
+      nilaiActive: Math.round(p.nilaiActive * 100) / 100,
+      nilaiExpired: Math.round(p.nilaiExpired * 100) / 100,
+      nilaiActiveExpired: Math.round((p.nilaiActive + p.nilaiExpired) * 100) / 100
+    };
+  });
+
+  var search = String(data.search || '').toLowerCase().trim();
+  var kelompok = String(data.kelompok || 'semua');
+  var optSet = {};
+  group.forEach(function (r) { if (r.Kelompok) optSet[r.Kelompok] = true; });
+  group = group.filter(function (r) {
+    if (kelompok && kelompok !== 'semua' && r.Kelompok !== kelompok) return false;
+    return !search || fieldsMatch_(r, ['NoAnggota', 'Nama', 'NIP', 'Kelompok'], search);
+  });
+  group = sortBy_(group, 'NoAnggota');
+
+  var summary = emptyLaporanVoucherSummary_();
+  summary.anggota = group.length;
+  group.forEach(function (r) {
+    summary.used += r.used;
+    summary.active += r.active;
+    summary.expired += r.expired;
+    summary.activeExpired += r.activeExpired;
+    summary.nilaiUsed += r.nilaiUsed;
+    summary.nilaiActive += r.nilaiActive;
+    summary.nilaiExpired += r.nilaiExpired;
+    summary.nilaiActiveExpired += r.nilaiActiveExpired;
+  });
+  summary.nilaiUsed = Math.round(summary.nilaiUsed * 100) / 100;
+  summary.nilaiActive = Math.round(summary.nilaiActive * 100) / 100;
+  summary.nilaiExpired = Math.round(summary.nilaiExpired * 100) / 100;
+  summary.nilaiActiveExpired = Math.round(summary.nilaiActiveExpired * 100) / 100;
+
+  var size = Math.max(parseInt(data.pageSize, 10) || 25, 1);
+  var r = data.full
+    ? { ok: true, list: group, total: group.length, page: 1, pages: Math.max(Math.ceil(group.length / size), 1), pageSize: size }
+    : pageResult_(group, data.page, data.pageSize);
+
+  r.message = res.message;
+  r.summary = summary;
+  r.kelompok = Object.keys(optSet).sort();
+  return r;
 }
 
 /** ------------------------------------------------------------------ */
