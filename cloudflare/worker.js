@@ -5,11 +5,14 @@
  * dengan tombol "Buka Aplikasi" yang mengarah ke web app Google Apps Script:
  *   https://script.google.com/macros/s/AKfycbzOyxDPX0.../exec
  *
- * CATATAN (penting):
- *  Web app GAS modern (arsitektur mae) TIDAK bisa dirender penuh di origin non-Google.
- *  Bukti: client mae Google menolak origin lain ("posting uri is not valid")
- *  dan halaman induk mengirim X-Frame-Options SAMEORIGIN + CSP frame-ancestors 'self'.
- *  Karenanya Worker ini berperan sebagai gateway/halaman pembuka, bukan reverse proxy.
+ * CATATAN (penting — terverifikasi via headless Chrome 24/09/2026):
+ *  - iframe-embed GAS DIBLOKIR: response /exec mengirim `X-Frame-Options: SAMEORIGIN`
+ *    + CSP `frame-ancestors 'self'`; browser menolak menampilkan app dalam iframe
+ *    di domain non-Google ("Refused to display ... because it set 'X-Frame-Options'").
+ *  - reverse-proxy penuh juga ditolak oleh client mae Google
+ *    ("posting uri is not valid: <origin non-Google>") karena google.script.run
+ *    hanya valid dari origin script.google.com.
+ *  Karenanya Worker ini berperan sebagai gateway/halaman pembuka, bukan proxy/iframe.
  */
 
 const APP_URL =
