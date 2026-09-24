@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.29';
+var APP_VERSION = '2.0.30';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -5052,7 +5052,9 @@ function getAuditRedeem(data) {
     rows.forEach(function (m) {
       mutasiJml += 1;
       mutasiNom += cleanNum_(m.Nilai);
-      var bln = bulanKey_(m.Waktu);
+      var v2 = vm[kode];
+      var bln = bulanKey_(v2 ? v2.AktifMulai : m.Waktu) || '';
+      if (!bln) bln = bulanKey_(m.Waktu) || '';
       if (bln) {
         if (!bulanMutasi[bln]) bulanMutasi[bln] = { jml: 0, nom: 0 };
         bulanMutasi[bln].jml += 1;
@@ -5089,7 +5091,7 @@ function getAuditRedeem(data) {
   statusMismatch = sortBy_(statusMismatch, 'AktifMulai');
   multiMutasi = sortBy_(multiMutasi, 'AktifMulai');
 
-  var msg = 'Pembanding: voucher berstatus "Used" (sheet Voucher) vs baris log redeem (sheet Mutasi).';
+  var msg = 'Pembanding: voucher berstatus "Used" (sheet Voucher) vs baris log redeem (sheet Mutasi). Rekap per bulan: redeem di-attach balik ke bulan terbit voucher (via kode voucher); mutasi yang kodenya tidak ketemu tetap dihitung pada bulan transaksinya.';
   return {
     ok: true,
     message: msg,

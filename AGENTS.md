@@ -33,8 +33,9 @@ cmd /c "clasp deploy -i AKfycbzY4u5xFFXTteCxUj-Ga5FgWZ4Qb720PfHxCut99SQV9VnA31kr
 
 Setara dengan `npm run deploy` (butuh clasp global; `node_modules` tidak diinstal).
 
-## Keadaan terakhir (v2.0.29)
+## Keadaan terakhir (v2.0.30)
 
+- **Audit Redeem: rekap per bulan kini attach balik ke bulan terbit** (v2.0.30): baris redeem di-attach ke bulan voucher terbit via kode voucher (`bulanKey_(v.AktifMulai)`); mutasi tanpa voucher induk tetap dihitung pada bulan transaksinya — voucher yang diperpanjang jadi tidak menimbulkan selisih palsu. Label kolom tabel jadi `Redeem (lembar/Rp)`.
 - **Tema senada merah** (v2.0.29): override CSS menetralkan sisa warna biru bawaan Bootstrap ke palet merah (`--primary:#dc2626`) — `text/bg/border-primary`, `btn-primary/outline-primary/info`, link, pagination, fokus input/select, checkbox, dropdown aktif.
 - **Laporan Voucher, Wajib Belanja, dan Audit Redeem untuk Anggota & Karyawan** (v2.0.28): ketiga menu punya toggle `Anggota | Karyawan` (parameter `kind`). Backend memilih sumber mirror `karyawan`/`anggota` (voucher & mutasi) dan master (anggota eksternal / `readDataKaryawan_`); label kolom menyesuaikan (NoAnggota→NIP, Kelompok→Unit, kolom NIP→Bagian). `getLaporanVoucherAnggota`, `getLaporanWajibBelanja`, `getAuditRedeem` menerima `data.kind`.
 
