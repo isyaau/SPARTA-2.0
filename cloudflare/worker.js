@@ -19,6 +19,13 @@
  *     (script.id `1Xsg8Dqo6sXaiYyRp2_vyLo0HspFI27X27RVRsONRSf7C_jNuPhpw4Txa`).
  *   - SA diberi akses edit ke 3 workbook: SPARTA MAIN, MyKopinka MAIN, HRIS MAIN.
  *   - `wrangler secret put GOOGLE_SA_JSON` dengan isi file key JSON service account.
+ *
+ * KREDENSIAL: dua mode didukung (prioritas SA bila ada).
+ *   A) SA JSON  -> secret GOOGLE_SA_JSON (JWT RS256 -> token OAuth2).
+ *   B) User OAuth (tanpa SA/key; org policy aman) -> secret GOOGLE_REFRESH_TOKEN
+ *      + GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET. Worker pakai grant_type
+ *      refresh_token ke oauth2.googleapis.com/token (tidak perlu access scopes
+ *      tambahan: scopes sudah melekat saat consent dibuat).
  */
 
 const SCRIPT_ID = '1Xsg8Dqo6sXaiYyRp2_vyLo0HspFI27X27RVRsONRSf7C_jNuPhpw4Txa';
@@ -60,11 +67,8 @@ async function importKey(pem) {
   );
 }
 
-async function getAccessToken(env) {
-  if (tokenCache.at && tokenCache.exp > Math.floor(Date.now() / 1000) + 60) {
-    return tokenCache.at;
-  }
-  const sa = JSON.parse(env.GOOGLE_SA_JSON);
+async function saToken(saJson) {
+  const sa = JSON.parse(saJson);
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: 'RS256', typ: 'JWT', kid: sa.private_key_id };
   const claims = {
@@ -92,11 +96,51 @@ async function getAccessToken(env) {
       assertion: jwt,
     }).toString(),
   });
+  const text = await res.text();
   if (!res.ok) {
-    throw new Error('Token exchange gagal HTTP ' + res.status + ': ' + (await res.text()));
+    throw new Error('Token exchange SA gagal HTTP ' + res.status + ': ' + text);
   }
-  const tj = await res.json();
-  tokenCache = { at: tj.access_token, exp: now + (tj.expires_in || 3600) };
+  return JSON.parse(text);
+}
+
+async function getUserToken(env) {
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+    throw new Error('GOOGLE_CLIENT_ID & GOOGLE_CLIENT_SECRET wajib diisi bersama GOOGLE_REFRESH_TOKEN');
+  }
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: env.GOOGLE_CLIENT_ID,
+      client_secret: env.GOOGLE_CLIENT_SECRET,
+      refresh_token: env.GOOGLE_REFRESH_TOKEN,
+      grant_type: 'refresh_token',
+    }).toString(),
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error('Refresh token gagal HTTP ' + res.status + ': ' + text);
+  }
+  return JSON.parse(text);
+}
+
+async function getAccessToken(env) {
+  if (tokenCache.at && tokenCache.exp > Math.floor(Date.now() / 1000) + 60) {
+    return tokenCache.at;
+  }
+  const now = Math.floor(Date.now() / 1000);
+  let tok;
+  if (env.GOOGLE_SA_JSON) {
+    tok = await saToken(env.GOOGLE_SA_JSON);
+  } else if (env.GOOGLE_REFRESH_TOKEN) {
+    tok = await getUserToken(env);
+  } else {
+    throw new Error(
+      'Kredensial belum diset: isi secret GOOGLE_SA_JSON (mode SA) ATAU ' +
+        'GOOGLE_REFRESH_TOKEN + GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET (mode user OAuth)'
+    );
+  }
+  tokenCache = { at: tok.access_token, exp: now + (tok.expires_in || 3600) };
   return tokenCache.at;
 }
 
