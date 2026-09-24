@@ -168,7 +168,8 @@ async function runScript(fn, args, env) {
       .join(' -> ');
     return { error: { message: String(j.error.message || d.errorMessage || 'Script error'), errorType: d.errorType || '', stack: stack } };
   }
-  return { response: j && typeof j.response !== 'undefined' ? j.response : null };
+  const r = j && j.response;
+  return { response: r && typeof r.result !== 'undefined' ? r.result : null };
 }
 
 function json(obj, status) {
