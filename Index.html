@@ -19,15 +19,18 @@
         body: JSON.stringify({ fn: fn, args: args })
       }).then(function (r) { return r.json(); }).then(function (j) {
         if (j && j.error) {
+          var errObj = new Error(j.error.message || String(j.error));
+          errObj.errorType = j.error.errorType || '';
+          errObj.stackTrace = j.error.stack || '';
           var fe = e[0] || function (x) { console.error(x); };
-          fe(j.error.message || String(j.error));
+          fe(errObj);
         } else {
           var v = j && j.response;
           o.forEach(function (f) { f(v); });
         }
       }).catch(function (x) {
         var fe = e[0] || function (y) { console.error(y); };
-        fe(x && x.message ? x.message : x);
+        fe(x instanceof Error ? x : new Error(String((x && x.message) || x)));
       });
     }
     var chain = new Proxy(function () {}, {
@@ -406,7 +409,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.35</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.36</div>
       </div>
     </div>
   </div>
@@ -441,7 +444,7 @@
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.35</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.36</small>
     </div>
   </aside>
 
