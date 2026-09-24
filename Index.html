@@ -311,7 +311,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.26</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.27</div>
       </div>
     </div>
   </div>
@@ -340,12 +340,13 @@
       <button id="nav-laporan" class="nav-link" onclick="showPage('laporan')"><i class="bi bi-clipboard-data"></i><span>Laporan</span></button>
       <button id="nav-laporan-voucher" class="nav-link" onclick="showPage('laporan-voucher')"><i class="bi bi-ticket-detailed"></i><span>Laporan Voucher</span></button>
       <button id="nav-laporan-wjb" class="nav-link" onclick="showPage('laporan-wjb')"><i class="bi bi-cart-check"></i><span>Laporan Wajib Belanja</span></button>
+      <button id="nav-audit-redeem" class="nav-link" onclick="showPage('audit-redeem')"><i class="bi bi-shield-exclamation"></i><span>Audit Data Redeem</span></button>
       <button id="nav-pengguna" class="nav-link admin-only" onclick="showPage('pengguna')" style="display:none"><i class="bi bi-people-fill"></i><span>Pengguna</span></button>
       <button id="nav-pengaturan" class="nav-link" onclick="showPage('pengaturan')"><i class="bi bi-gear-fill"></i><span>Pengaturan</span></button>
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.26</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.27</small>
     </div>
   </aside>
 
@@ -1534,6 +1535,134 @@
     </div>
   </section>
 
+  <!-- ===================== AUDIT DATA REDEEM ===================== -->
+  <section id="page-audit-redeem" class="page">
+    <div class="dash-head">
+      <div>
+        <h4><i class="bi bi-shield-exclamation me-1"></i>Audit Data Redeem</h4>
+        <p>Pembanding voucher berstatus "Used" (sheet Voucher) vs log redeem (sheet Mutasi) untuk menemukan selisih data.</p>
+      </div>
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-3 mb-4">
+      <div class="col"><div class="card h-100"><div class="card-body">
+        <div class="text-muted small mb-1">Voucher Status Used</div>
+        <div class="stat-value text-success" id="ar-used">-</div>
+        <div class="small text-muted mt-2" id="ar-used-nom"></div>
+      </div></div></div>
+      <div class="col"><div class="card h-100"><div class="card-body">
+        <div class="text-muted small mb-1">Log Mutasi (Redeem)</div>
+        <div class="stat-value" id="ar-mutasi">-</div>
+        <div class="small text-muted mt-2" id="ar-mutasi-nom"></div>
+      </div></div></div>
+      <div class="col"><div class="card h-100"><div class="card-body">
+        <div class="text-muted small mb-1">Selisih (Used - Mutasi)</div>
+        <div class="stat-value text-danger" id="ar-selisih">-</div>
+        <div class="small text-muted mt-2" id="ar-selisih-nom"></div>
+      </div></div></div>
+      <div class="col"><div class="card h-100"><div class="card-body">
+        <div class="text-muted small mb-1">Data Diperiksa</div>
+        <div class="stat-value" id="ar-periksa">-</div>
+        <div class="small text-muted mt-2">Voucher &amp; Mutasi mirror</div>
+      </div></div></div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">
+          <h6 class="fw-bold mb-0"><i class="bi bi-calendar-month me-1"></i>Rekap per Bulan</h6>
+          <button class="btn btn-sm btn-outline-secondary" onclick="loadAuditRedeem(true)"><i class="bi bi-arrow-repeat me-1"></i>Muat Ulang</button>
+        </div>
+        <div class="form-text mb-2" id="ar-sumber"></div>
+        <div class="table-responsive">
+          <table class="table table-hover table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="small text-uppercase text-muted">Bulan</th>
+                <th class="small text-uppercase text-muted text-end">Used (lembar)</th>
+                <th class="small text-uppercase text-muted text-end">Used (Rp)</th>
+                <th class="small text-uppercase text-muted text-end">Mutasi (lembar)</th>
+                <th class="small text-uppercase text-muted text-end">Mutasi (Rp)</th>
+                <th class="small text-uppercase text-muted text-end">Selisih (lembar)</th>
+                <th class="small text-uppercase text-muted text-end">Selisih (Rp)</th>
+              </tr>
+            </thead>
+            <tbody id="tabel-ar-bulan"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <h6 class="fw-bold mb-2"><i class="bi bi-x-circle-fill mr-1 text-danger"></i>Used Tanpa Log Mutasi (voucher Used tapi tidak ada baris redeem)</h6>
+        <div class="form-text mb-2">Kode voucher ini berstatus "Used" di sheet Voucher namun tidak ketemu di log Mutasi.</div>
+        <div class="table-responsive">
+          <table class="table table-hover table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr><th class="small text-muted">Kode</th><th class="small text-muted">No Anggota</th><th class="small text-muted">Nama</th><th class="small text-muted text-end">Nilai</th><th class="small text-muted">Aktif Mulai</th><th class="small text-muted">ExpDate</th></tr>
+            </thead>
+            <tbody id="tabel-ar-used"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-4">
+      <div class="card-body">
+        <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-diamond-fill mr-1 text-warning"></i>Mutasi Tanpa Voucher (log redeem tanpa voucher induk)</h6>
+        <div class="form-text mb-2">Baris Mutasi ini tidak cocok dengan kode voucher mana pun di sheet Voucher.</div>
+        <div class="table-responsive">
+          <table class="table table-hover table-sm align-middle mb-0">
+            <thead class="table-light">
+              <tr><th class="small text-muted">Kode</th><th class="small text-muted">Waktu</th><th class="small text-muted">Toko</th><th class="small text-muted text-end">Nilai</th><th class="small text-muted">No Anggota</th><th class="small text-muted">Nama</th></tr>
+            </thead>
+            <tbody id="tabel-ar-unmatched"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <h6 class="fw-bold mb-2"><i class="bi bi-patch-question mr-1 text-primary"></i>Status Tidak Konsisten (ada mutasi tapi status bukan Used)</h6>
+            <div class="table-responsive">
+              <table class="table table-hover table-sm align-middle mb-0">
+                <thead class="table-light">
+                  <tr><th class="small text-muted">Kode</th><th class="small text-muted">No Anggota</th><th class="small text-muted text-end">Nilai</th><th class="small text-muted">Status</th><th class="small text-muted text-end">Jml Mutasi</th></tr>
+                </thead>
+                <tbody id="tabel-ar-status"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">
+              <h6 class="fw-bold mb-0"><i class="bi bi-repeat mr-1 text-secondary"></i>Multi Mutasi (voucher Used diredeem >1x)</h6>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-success" onclick="arExport()"><i class="bi bi-file-earmark-excel me-1"></i>Export</button>
+                <button class="btn btn-sm btn-outline-info" onclick="arExportCsv()"><i class="bi bi-filetype-csv me-1"></i>CSV</button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover table-sm align-middle mb-0">
+                <thead class="table-light">
+                  <tr><th class="small text-muted">Kode</th><th class="small text-muted">No Anggota</th><th class="small text-muted">Nama</th><th class="small text-muted text-end">Nilai</th><th class="small text-muted text-end">Jml Mutasi</th></tr>
+                </thead>
+                <tbody id="tabel-ar-multi"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ===================== PENGUNA ===================== -->
   <section id="page-pengguna" class="page">
     <div class="card">
@@ -2122,6 +2251,7 @@
     laporan: { page: 1, size: 25, pages: 1 },
     'laporan-voucher': { page: 1, size: 25, pages: 1 },
     'laporan-wjb': { page: 1, size: 25, pages: 1 },
+    'audit-redeem': { page: 1, size: 25, pages: 1 },
     pengguna: { page: 1, size: 25, pages: 1 },
     pengaturan: { page: 1, size: 25, pages: 1 },
     notifikasi: { page: 1, size: 25, pages: 1 },
@@ -2153,6 +2283,7 @@
     lvKey: '',
     wjbAll: null,
     wjbKey: '',
+    arAll: null,
     rvKind: 'anggota',
     rpKind: 'anggota',
     bcastFilter: 'semua',
@@ -2180,6 +2311,7 @@
     laporan: loadLaporan,
     'laporan-voucher': loadLaporanVoucher,
     'laporan-wjb': loadLaporanWjb,
+    'audit-redeem': loadAuditRedeem,
     pengguna: loadPengguna,
     pengaturan: loadPengaturan,
     notifikasi: loadNotifikasi,
@@ -2572,7 +2704,7 @@
       '</div></div></div>';
   }
 
-  var PAGE_TITLES = { dashboard: 'Dashboard', anggota: 'Data Anggota', karyawan: 'Data Karyawan', piutang: 'Data Kredit', redeem: 'Transaksi', mutasi: 'Mutasi Voucher', voucher: 'Voucher', notifikasi: 'Notifikasi', broadcast: 'Broadcast', laporan: 'Laporan', 'laporan-voucher': 'Laporan Voucher Anggota', 'laporan-wjb': 'Laporan Wajib Belanja', pengguna: 'Pengguna & Login', pengaturan: 'Pengaturan' };
+  var PAGE_TITLES = { dashboard: 'Dashboard', anggota: 'Data Anggota', karyawan: 'Data Karyawan', piutang: 'Data Kredit', redeem: 'Transaksi', mutasi: 'Mutasi Voucher', voucher: 'Voucher', notifikasi: 'Notifikasi', broadcast: 'Broadcast', laporan: 'Laporan', 'laporan-voucher': 'Laporan Voucher Anggota', 'laporan-wjb': 'Laporan Wajib Belanja', 'audit-redeem': 'Audit Data Redeem', pengguna: 'Pengguna & Login', pengaturan: 'Pengaturan' };
 
   function showPage(name) {
     document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
@@ -5566,6 +5698,129 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
 
   function wjbCetakPrint() {
     window.print();
+  }
+
+  /* ---------------- AUDIT DATA REDEEM ---------------- */
+
+  function loadAuditRedeem(force) {
+    if (!force && STATE.arAll) { renderAuditRedeem(); return; }
+    busy(true, 'Membandingkan data voucher & mutasi...');
+    google.script.run
+      .withSuccessHandler(function (d) {
+        busy(false);
+        if (!d.ok) { showToast(d.message || 'Gagal memuat audit.', true); return; }
+        $('ar-sumber').textContent = d.message || '';
+        STATE.arAll = d;
+        renderAuditRedeem();
+      })
+      .withFailureHandler(function (e) { busy(false); showToast('Error audit: ' + e.message, true); })
+      .getAuditRedeem({ token: SESSION.token });
+  }
+
+  function renderAuditRedeem() {
+    var d = STATE.arAll;
+    if (!d) return;
+    var s = d.summary || {};
+    $('ar-used').textContent = s.usedJml || 0;
+    $('ar-used-nom').textContent = formatIDR(s.usedNom);
+    $('ar-mutasi').textContent = s.mutasiJml || 0;
+    $('ar-mutasi-nom').textContent = formatIDR(s.mutasiNom);
+    $('ar-selisih').textContent = (s.selisihJml === undefined ? 0 : (s.selisihJml > 0 ? '+' : '') + s.selisihJml);
+    $('ar-selisih-nom').textContent = (s.selisihNom > 0 ? '+' : '') + formatIDR(s.selisihNom);
+    $('ar-periksa').textContent = ((s.usedJml || 0) + (s.mutasiJml || 0)) + ' baris';
+
+    var tb = $('tabel-ar-bulan');
+    var rows = d.bulan || [];
+    if (!rows.length) {
+      tb.innerHTML = '<tr><td colspan="7" class="empty">Belum ada data untuk dibandingkan.</td></tr>';
+    } else {
+      tb.innerHTML = rows.map(function (r) {
+        var cls = r.selisihJml === 0 ? '' : ' text-danger fw-bold';
+        return '<tr>' +
+          '<td>' + esc(bulanLabel(r.bulan)) + '</td>' +
+          '<td class="text-end">' + r.voucherJml + '</td>' +
+          '<td class="money">' + formatIDR(r.voucherNom) + '</td>' +
+          '<td class="text-end">' + r.mutasiJml + '</td>' +
+          '<td class="money">' + formatIDR(r.mutasiNom) + '</td>' +
+          '<td class="text-end' + cls + '">' + (r.selisihJml > 0 ? '+' : '') + r.selisihJml + '</td>' +
+          '<td class="money' + cls + '">' + (r.selisihNom > 0 ? '+' : '') + formatIDR(r.selisihNom) + '</td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    var used = d.usedWithoutMutasi || [];
+    var tu = $('tabel-ar-used');
+    if (!used.length) {
+      $('tabel-ar-used').innerHTML = '<tr><td colspan="6" class="empty">Tidak ada selisih. Semua voucher Used punya log mutasi.</td></tr>';
+    } else {
+      tu.innerHTML = used.map(function (x) {
+        return '<tr><td>' + esc(x.Kode) + '</td><td>' + esc(x.NoAnggota) + '</td><td>' + esc(x.Nama) + '</td><td class="money">' + formatIDR(x.Nilai) + '</td><td>' + esc(x.AktifMulai) + '</td><td>' + esc(x.ExpDate) + '</td></tr>';
+      }).join('');
+    }
+
+    var um = d.mutasiWithoutVoucher || [];
+    var tum = $('tabel-ar-unmatched');
+    if (!um.length) {
+      tum.innerHTML = '<tr><td colspan="6" class="empty">Tidak ada mutasi tanpa voucher induk.</td></tr>';
+    } else {
+      tum.innerHTML = um.map(function (x) {
+        return '<tr><td>' + esc(x.Kode) + '</td><td>' + esc(x.Waktu) + '</td><td>' + esc(x.Toko) + '</td><td class="money">' + formatIDR(x.Nilai) + '</td><td>' + esc(x.NoAnggota) + '</td><td>' + esc(x.Nama) + '</td></tr>';
+      }).join('');
+    }
+
+    var st = d.statusMismatch || [];
+    var ts = $('tabel-ar-status');
+    if (!st.length) {
+      ts.innerHTML = '<tr><td colspan="5" class="empty">Tidak ada status tidak konsisten.</td></tr>';
+    } else {
+      ts.innerHTML = st.map(function (x) {
+        return '<tr><td>' + esc(x.Kode) + '</td><td>' + esc(x.NoAnggota) + '</td><td class="money">' + formatIDR(x.Nilai) + '</td><td>' + badge(x.Status) + '</td><td class="text-end">' + x.JumlahMutasi + '</td></tr>';
+      }).join('');
+    }
+
+    var mu = d.multiMutasi || [];
+    var tm = $('tabel-ar-multi');
+    if (!mu.length) {
+      tm.innerHTML = '<tr><td colspan="5" class="empty">Tidak ada voucher diredeem lebih dari 1x.</td></tr>';
+    } else {
+      tm.innerHTML = mu.map(function (x) {
+        return '<tr><td>' + esc(x.Kode) + '</td><td>' + esc(x.NoAnggota) + '</td><td>' + esc(x.Nama) + '</td><td class="money">' + formatIDR(x.Nilai) + '</td><td class="text-end">' + x.JumlahMutasi + '</td></tr>';
+      }).join('');
+    }
+  }
+
+  function arRowsExport() {
+    var d = STATE.arAll || {};
+    var out = [];
+    (d.bulan || []).forEach(function (r) {
+      out.push({ 'JENIS': 'Rekap Bulan', 'KODE': bulanLabel(r.bulan), 'TANGGAL': r.bulan, 'NILAI': r.voucherNom, 'LEMBAR': r.voucherJml,
+        'NO ANGGOTA': '', 'NAMA': '', 'TOKO': '', 'STATUS': 'Used=' + r.voucherJml + ' Mutasi=' + r.mutasiJml + ' Selisih=' + (r.selisihJml > 0 ? '+' : '') + r.selisihJml });
+    });
+    (d.usedWithoutMutasi || []).forEach(function (x) {
+      out.push({ 'JENIS': 'Used Tanpa Mutasi', 'KODE': x.Kode, 'TANGGAL': x.AktifMulai, 'NILAI': x.Nilai, 'LEMBAR': 1, 'NO ANGGOTA': x.NoAnggota, 'NAMA': x.Nama, 'TOKO': '', 'STATUS': 'Used' });
+    });
+    (d.mutasiWithoutVoucher || []).forEach(function (x) {
+      out.push({ 'JENIS': 'Mutasi Tanpa Voucher', 'KODE': x.Kode, 'TANGGAL': x.Waktu, 'NILAI': x.Nilai, 'LEMBAR': 1, 'NO ANGGOTA': x.NoAnggota, 'NAMA': x.Nama, 'TOKO': x.Toko, 'STATUS': '-' });
+    });
+    (d.statusMismatch || []).forEach(function (x) {
+      out.push({ 'JENIS': 'Status Tidak Konsisten', 'KODE': x.Kode, 'TANGGAL': x.AktifMulai, 'NILAI': x.Nilai, 'LEMBAR': x.JumlahMutasi, 'NO ANGGOTA': x.NoAnggota, 'NAMA': x.Nama, 'TOKO': '', 'STATUS': x.Status });
+    });
+    (d.multiMutasi || []).forEach(function (x) {
+      out.push({ 'JENIS': 'Multi Mutasi', 'KODE': x.Kode, 'TANGGAL': x.AktifMulai, 'NILAI': x.Nilai, 'LEMBAR': x.JumlahMutasi, 'NO ANGGOTA': x.NoAnggota, 'NAMA': x.Nama, 'TOKO': '', 'STATUS': 'Used' });
+    });
+    return { rows: out, headers: ['JENIS', 'KODE', 'TANGGAL', 'NILAI', 'LEMBAR', 'NO ANGGOTA', 'NAMA', 'TOKO', 'STATUS'] };
+  }
+
+  function arExport() {
+    var e = arRowsExport();
+    if (!e.rows.length) { showToast('Tidak ada data selisih untuk diexport.', true); return; }
+    exportXlsx('Audit_Redeem_' + todayStr(), 'Audit', e.headers, e.rows);
+  }
+
+  function arExportCsv() {
+    var e = arRowsExport();
+    if (!e.rows.length) { showToast('Tidak ada data selisih untuk diexport.', true); return; }
+    downloadCsv('Audit_Redeem_' + todayStr(), e.headers, e.rows);
   }
 
   /**

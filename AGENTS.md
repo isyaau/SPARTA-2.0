@@ -33,7 +33,9 @@ cmd /c "clasp deploy -i AKfycbzY4u5xFFXTteCxUj-Ga5FgWZ4Qb720PfHxCut99SQV9VnA31kr
 
 Setara dengan `npm run deploy` (butuh clasp global; `node_modules` tidak diinstal).
 
-## Keadaan terakhir (v2.0.26)
+## Keadaan terakhir (v2.0.27)
+
+- **Menu Audit Data Redeem** (v2.0.27): pembanding voucher berstatus `Used` (sheet Voucher) vs baris log redeem (sheet Mutasi) via kode voucher — kartu ringkasan (Used/Mutasi/Selisih), rekap per bulan, daftar **Used tanpa log mutasi**, **mutasi tanpa voucher induk**, **status tidak konsisten**, dan **multi mutasi**; export XLSX/CSV. Backend `getAuditRedeem`.
 
 - **Menu Laporan Program Wajib Belanja Anggota** (v2.0.26): rekap bulanan (No/Bulan + Diterbitkan & Redeem & Sisa dalam lembar+Rp + persentase realisasi, baris TOTAL) dari sheet voucher anggota (bulan terbit = `AktifMulai`) dan sheet mutasi anggota (redeem di-attach kembali ke bulan penerbitan via `KodeVoucher`; bila kode tidak ketemu, masuk ke bulan redeem); detail per outlet (`Toko` mutasi) nominal + jmlh voucher dengan baris TOTAL, "Data update" = tanggal terakhir redeem/ hari ini; filter tahun, export XLSX (2 sheet)/CSV, cetak. Backend `getLaporanWajibBelanja`.
 - **Menu Laporan Voucher Anggota** (v2.0.25): halaman rekap voucher per anggota (NoAnggota/Nama/NIP/Kelompok + jumlah used/active/expire/active+expire + nilai rupiah used/active/expired) dari mirror sheet voucher anggota + master anggota eksternal; filter cari & kelompok, pager, export XLSX/CSV, cetak. Backend `getLaporanVoucherAnggota` + `statusVoucherRekap_` — **expired dihitung dari `ExpDate` < tanggal hari ini (bukan kolom Status)**, format tanggal ISO `yyyy-MM-dd` atau `dd/MM/yyyy` via `parseDateStr_`; Status `Used` tetap prioritas (used), sisanya active.

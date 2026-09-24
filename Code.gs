@@ -1,4 +1,4 @@
-/**
+﻿/**
  * SPARTA KOPINKA
  * Sistem Pencatatan & Redeem Piutang Anggota KOPINKA
  * Backend utama Google Apps Script.
@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.26';
+var APP_VERSION = '2.0.27';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -358,7 +358,7 @@ function nextIdTanggal_(sheet, column, prefix, tanggalStr) {
   var maxNum = 0;
   if (lastRow > 1) {
     // Baris mutasi selalu ditambahkan di bawah secara kronologis, jadi
-    // maksimum ID harian pasti ada di ekor sheet — scan 10 ribu baris terakhir.
+    // maksimum ID harian pasti ada di ekor sheet â€” scan 10 ribu baris terakhir.
     var scanStart = Math.max(2, lastRow - 9998);
     var data = sheet.getRange(scanStart, colIndex, lastRow - scanStart + 1).getValues();
     data.forEach(function (r) {
@@ -481,7 +481,7 @@ var CACHE_DEF = {
 
 var MEM_CACHE_ = {};
 
-/** Catat waktu operasi (Logger) bila >= 100 ms — untuk diagnostik performa. */
+/** Catat waktu operasi (Logger) bila >= 100 ms â€” untuk diagnostik performa. */
 function perf_(label, t0) {
   var ms = Date.now() - t0;
   if (ms >= 100) Logger.log('PERF [' + label + '] ' + ms + 'ms');
@@ -624,7 +624,7 @@ function patchCacheList_(key, ttl, patchFn) {
  * tidak berubah; decode(skipEmpty=true) dipakai saat dibaca utk dipakai.
  */
 function voucherCacheDecode_(hit, normalizeFn, skipEmpty) {
-  if (Array.isArray(hit)) return hit; // format lama — biarkan seperti apa adanya
+  if (Array.isArray(hit)) return hit; // format lama â€” biarkan seperti apa adanya
   if (!hit || !Array.isArray(hit.h) || !Array.isArray(hit.v)) return null;
   var nf = normalizeFn || function (o) { return o; };
   var out = [];
@@ -756,7 +756,7 @@ function readVoucherSheet_(spreadsheetId, sheetName, normalizeFn) {
       rows = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
       // Baca nilai tampilan (getDisplayValues) HANYA untuk kolom kode (nol di
       // depan perlu dipertahankan). Menghindari render display seluruh kolom
-      // sheet yang besar — penyebab lambat 30-50 detik saat cache dingin.
+      // sheet yang besar â€” penyebab lambat 30-50 detik saat cache dingin.
       headers.forEach(function (h, c) { if (isKodeTextCol_(h)) {
         var disp = sheet.getRange(2, c + 1, lastRow - 1, 1).getDisplayValues();
         rows.forEach(function (row, r) {
@@ -1158,7 +1158,7 @@ function colLetter_(n) {
   return s || 'A';
 }
 
-/** Baca baris header (nilai) sheet eksternal — cache per eksekusi. */
+/** Baca baris header (nilai) sheet eksternal â€” cache per eksekusi. */
 var _extHdrCache_ = {};
 function getSheetHeadersExt_(spreadsheetId, sheetName) {
   var ck = spreadsheetId + '::' + (sheetName || '');
@@ -1181,7 +1181,7 @@ function getExtColumnValues_(spreadsheetId, sheetName, colNum, startRow) {
   return out;
 }
 
-/** Tulis status pada baris-baris tertentu (satu kolom) — 1 panggilan batch. */
+/** Tulis status pada baris-baris tertentu (satu kolom) â€” 1 panggilan batch. */
 function setStatusExtBatch_(spreadsheetId, sheetName, statusCol, rowValues) {
   var pref = sheetRefA1_(sheetName) + '!' + colLetter_(statusCol);
   var data = [];
@@ -1194,7 +1194,7 @@ function setStatusExtBatch_(spreadsheetId, sheetName, statusCol, rowValues) {
   sheetsApiFetch_(spreadsheetId, '/values:batchUpdate', { valueInputOption: 'USER_ENTERED', data: data }, 'POST');
 }
 
-/** Tambah baris ke sheet eksternal (posisi setelah baris terakhir) — 1 panggilan. */
+/** Tambah baris ke sheet eksternal (posisi setelah baris terakhir) â€” 1 panggilan. */
 function appendRowsExt_(spreadsheetId, sheetName, valuesList) {
   if (!valuesList || !valuesList.length) return;
   sheetsApiFetch_(spreadsheetId, '/values/' + encodeURIComponent(sheetRefA1_(sheetName) + '!A1') + ':append?valueInputOption=USER_ENTERED', { values: valuesList }, 'POST');
@@ -2941,7 +2941,7 @@ function nextIdPiutang_(sheet, tgl, prefix) {
   var maxSeq = 0;
   if (colIndex > 0 && lastRow > 1) {
     // Baris piutang selalu ditambahkan di bawah secara kronologis, jadi
-    // maksimum ID harian pasti ada di ekor sheet — scan 10 ribu baris terakhir.
+    // maksimum ID harian pasti ada di ekor sheet â€” scan 10 ribu baris terakhir.
     var scanStart = Math.max(2, lastRow - 9998);
     var data = sheet.getRange(scanStart, colIndex, lastRow - scanStart + 1).getValues();
     var re = new RegExp('^' + prefix + dateKey + '(\\d+)$');
@@ -3785,8 +3785,8 @@ function alatCekNIP(no) {
       if (cocokB || cocokL) {
         ket1 = true;
         out.push('  >> [Master] KETEMU, Row ' + (Number(k.Row) || i + 2) +
-          ' | NIPBaru="' + nipB + '"' + (cocokB ? ' ✔' : '') +
-          ' | NIPLama="' + nipL + '"' + (cocokL ? ' ✔' : '') +
+          ' | NIPBaru="' + nipB + '"' + (cocokB ? ' âœ”' : '') +
+          ' | NIPLama="' + nipL + '"' + (cocokL ? ' âœ”' : '') +
           ' | Nama="' + String(k.NamaLengkap || '') + '"');
       }
     });
@@ -3805,7 +3805,7 @@ function alatCekNIP(no) {
   /* 2) Sheet Voucher Karyawan (mirror) */
   var conf = getVoucherKaryawanConfig_();
   out.push('[Voucher Karyawan] Spreadsheet ID: "' + conf.spreadsheetId + '" Sheet: "' + conf.sheetName + '"' +
-    (conf.spreadsheetId ? '' : '  → BELUM DIKONFIGURASI'));
+    (conf.spreadsheetId ? '' : '  â†’ BELUM DIKONFIGURASI'));
   var resV = readMirrorSheet_('karyawan', 'voucher', normalizeVoucherKaryawan_, 'voucher karyawan');
   if (resV.ok) {
     out.push('[Voucher Karyawan] OK, ' + (resV.list || []).length + ' voucher dimuat.');
@@ -4947,6 +4947,136 @@ function getLaporanWajibBelanja(data) {
     bulananTotal: total,
     outlet: outletList,
     outletTotal: outletTotal
+  };
+}
+
+/** ------------------------------------------------------------------ */
+/** AUDIT SELISIH DATA REDEEM (voucher Used vs log mutasi)             */
+/** ------------------------------------------------------------------ */
+
+function getAuditRedeem(data) {
+  data = data || {};
+  var u = validasiSesi(String(data.token || '').trim());
+  if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
+
+  var voucherRes = readMirrorSheet_('anggota', 'voucher', normalizeVoucher_, 'voucher anggota');
+  if (!voucherRes.ok) return getErrorObj_(voucherRes.message);
+  var mutasiRes = readMirrorSheet_('anggota', 'mutasi', normalizeMutasiAnggota_, 'mutasi anggota');
+  if (!mutasiRes.ok) return getErrorObj_(mutasiRes.message);
+
+  var vm = {};
+  (voucherRes.list || []).forEach(function (v) {
+    var kode = normalizeKodeVoucher_(v.Kode);
+    if (kode && !vm[kode]) vm[kode] = v;
+  });
+  var mm = {};
+  (mutasiRes.list || []).forEach(function (m) {
+    var kode = normalizeKodeVoucher_(m.KodeVoucher);
+    if (!kode) return;
+    if (!mm[kode]) mm[kode] = [];
+    mm[kode].push(m);
+  });
+
+  var usedLike = function (v) { return String(v.Status || '').toLowerCase() === 'used'; };
+
+  var usedJml = 0, usedNom = 0, mutasiJml = 0, mutasiNom = 0;
+  var usedWithoutMutasi = [];
+  var mutasiWithoutVoucher = [];
+  var statusMismatch = [];
+  var multiMutasi = [];
+  var bulanVoucher = {};
+  var bulanMutasi = {};
+
+  Object.keys(vm).forEach(function (kode) {
+    var v = vm[kode];
+    var rows = mm[kode] || [];
+    if (String(v.Status || '').toLowerCase() === 'used') {
+      usedJml += 1;
+      usedNom += cleanNum_(v.Nilai);
+      var bln = bulanKey_(v.AktifMulai);
+      if (bln) {
+        if (!bulanVoucher[bln]) bulanVoucher[bln] = { jml: 0, nom: 0 };
+        bulanVoucher[bln].jml += 1;
+        bulanVoucher[bln].nom += cleanNum_(v.Nilai);
+      }
+      if (!rows.length) {
+        usedWithoutMutasi.push({
+          Kode: kode, NoAnggota: v.NoAnggota, Nama: v.Nama, Nilai: cleanNum_(v.Nilai),
+          AktifMulai: v.AktifMulai, ExpDate: v.ExpDate, Status: v.Status
+        });
+      } else if (rows.length > 1) {
+        multiMutasi.push({
+          Kode: kode, NoAnggota: v.NoAnggota, Nama: v.Nama, Nilai: cleanNum_(v.Nilai),
+          AktifMulai: v.AktifMulai, JumlahMutasi: rows.length
+        });
+      }
+    } else if (rows.length) {
+      statusMismatch.push({
+        Kode: kode, NoAnggota: v.NoAnggota, Nama: v.Nama, Nilai: cleanNum_(v.Nilai),
+        Status: v.Status, JumlahMutasi: rows.length, AktifMulai: v.AktifMulai
+      });
+    }
+  });
+
+  Object.keys(mm).forEach(function (kode) {
+    var rows = mm[kode];
+    rows.forEach(function (m) {
+      mutasiJml += 1;
+      mutasiNom += cleanNum_(m.Nilai);
+      var bln = bulanKey_(m.Waktu);
+      if (bln) {
+        if (!bulanMutasi[bln]) bulanMutasi[bln] = { jml: 0, nom: 0 };
+        bulanMutasi[bln].jml += 1;
+        bulanMutasi[bln].nom += cleanNum_(m.Nilai);
+      }
+      if (!vm[kode]) {
+        mutasiWithoutVoucher.push({
+          Kode: kode, Waktu: m.Waktu, Toko: m.Toko, Nilai: cleanNum_(m.Nilai),
+          NoAnggota: m.NoAnggota, Nama: m.Nama
+        });
+      }
+    });
+  });
+
+  var months = {};
+  Object.keys(bulanVoucher).forEach(function (b) { months[b] = true; });
+  Object.keys(bulanMutasi).forEach(function (b) { months[b] = true; });
+  var bulan = Object.keys(months).sort().map(function (b) {
+    var v = bulanVoucher[b] || { jml: 0, nom: 0 };
+    var m = bulanMutasi[b] || { jml: 0, nom: 0 };
+    var vNom = Math.round(v.nom * 100) / 100;
+    var mNom = Math.round(m.nom * 100) / 100;
+    return {
+      bulan: b,
+      voucherJml: v.jml, voucherNom: vNom,
+      mutasiJml: m.jml, mutasiNom: mNom,
+      selisihJml: v.jml - m.jml,
+      selisihNom: Math.round((vNom - mNom) * 100) / 100
+    };
+  });
+
+  usedWithoutMutasi = sortBy_(usedWithoutMutasi, 'AktifMulai');
+  mutasiWithoutVoucher = sortBy_(mutasiWithoutVoucher, 'Waktu');
+  statusMismatch = sortBy_(statusMismatch, 'AktifMulai');
+  multiMutasi = sortBy_(multiMutasi, 'AktifMulai');
+
+  var msg = 'Pembanding: voucher berstatus "Used" (sheet Voucher) vs baris log redeem (sheet Mutasi).';
+  return {
+    ok: true,
+    message: msg,
+    summary: {
+      usedJml: usedJml,
+      usedNom: Math.round(usedNom * 100) / 100,
+      mutasiJml: mutasiJml,
+      mutasiNom: Math.round(mutasiNom * 100) / 100,
+      selisihJml: usedJml - mutasiJml,
+      selisihNom: Math.round((usedNom - mutasiNom) * 100) / 100
+    },
+    bulan: bulan,
+    usedWithoutMutasi: usedWithoutMutasi,
+    mutasiWithoutVoucher: mutasiWithoutVoucher,
+    statusMismatch: statusMismatch,
+    multiMutasi: multiMutasi
   };
 }
 
