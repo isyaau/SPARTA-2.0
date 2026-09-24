@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.24';
+var APP_VERSION = '2.0.25';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -4700,12 +4700,22 @@ function getLaporanData(data) {
 /** LAPORAN VOUCHER ANGGOTA (rekap lembar & nilai voucher per anggota) */
 /** ------------------------------------------------------------------ */
 
-function statusVoucherRekap_(v) {
+function statusVoucherRekap_(v, today) {
   var s = String(v.Status || '').toLowerCase();
   if (s === 'used') return 'used';
-  if (s === 'active') return 'active';
-  if (s.indexOf('expir') === 0) return 'expired';
-  return 'other';
+  var d = parseDateStr_(v.ExpDate);
+  if (d && d < today) return 'expired';
+  return 'active';
+}
+
+function parseDateStr_(s) {
+  s = String(s || '').trim();
+  if (!s) return '';
+  var iso = s.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/);
+  if (iso) return iso[1] + '-' + ('0' + iso[2]).slice(-2) + '-' + ('0' + iso[3]).slice(-2);
+  var d = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})/);
+  if (d) return d[3] + '-' + ('0' + d[2]).slice(-2) + '-' + ('0' + d[1]).slice(-2);
+  return '';
 }
 
 function emptyLaporanVoucherSummary_() {
@@ -4732,6 +4742,7 @@ function getLaporanVoucherAnggota(data) {
   });
 
   var paket = {};
+  var today = Utilities.formatDate(new Date(), getTimeZone_(), 'yyyy-MM-dd');
   (res.list || []).forEach(function (v) {
     var rawNo = formatCell_(v.NoAnggota);
     var no = rawNo.replace(/^A/i, '');
@@ -4747,7 +4758,7 @@ function getLaporanVoucherAnggota(data) {
     };
     if (!p.Nama) p.Nama = formatCell_(v.Nama);
     if (!p.Kelompok) p.Kelompok = formatCell_(v.Kelompok);
-    var kat = statusVoucherRekap_(v);
+    var kat = statusVoucherRekap_(v, today);
     var nilai = cleanNum_(v.Nilai);
     if (kat === 'used') { p.used += 1; p.nilaiUsed += nilai; }
     else if (kat === 'active') { p.active += 1; p.nilaiActive += nilai; }
