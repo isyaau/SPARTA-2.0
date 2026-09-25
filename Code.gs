@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.40';
+var APP_VERSION = '2.0.41';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -3667,6 +3667,51 @@ function cariPemegang(data) {
     ok: true,
     perluVoucher: false,
     holder: holder
+  };
+}
+
+function normalizeNamaPencarian_(value) {
+  var s = String(value || '').toLowerCase().trim();
+  try { s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (e) {}
+  return s.replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function cariPemegangNama(data) {
+  data = data || {};
+  var isKaryawan = data.kind === 'karyawan';
+  var q = normalizeNamaPencarian_(data.nama || data.q);
+  if (q.length < 2) return { ok: true, list: [], total: 0, minimal: true };
+  var res = isKaryawan ? readDataKaryawan_() : readDataAnggotaExt_();
+  if (!res || !res.ok) return { ok: false, message: (res && res.message) || 'Gagal memuat data pemegang.', list: [] };
+  var rows = [];
+  (res.list || []).forEach(function (h) {
+    var nama = String(isKaryawan ? (h.NamaLengkap || '') : (h.Nama || '')).trim();
+    var namaCari = normalizeNamaPencarian_(nama);
+    var rank = namaCari === q ? 0 : (namaCari.indexOf(q) === 0 ? 1 : (namaCari.indexOf(q) >= 0 ? 2 : -1));
+    if (rank < 0) return;
+    var no = String(isKaryawan ? (h.NIPBaru || h.NIPLama || '') : (h.NoAnggota || '')).trim();
+    if (!no || !nama) return;
+    var status = String(isKaryawan ? (h.AktifNonAktif || '') : (h.Status || '')).trim();
+    rows.push({
+      rank: rank,
+      aktif: !/non\s*aktif|diblokir|block|suspend/i.test(status),
+      no: no,
+      nama: nama,
+      unit: String(isKaryawan ? (h.Bagian || h.Unit || '') : (h.Kelompok || '')).trim(),
+      status: status
+    });
+  });
+  rows.sort(function (a, b) {
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    if (a.aktif !== b.aktif) return a.aktif ? -1 : 1;
+    return String(a.nama).localeCompare(String(b.nama));
+  });
+  return {
+    ok: true,
+    list: rows.slice(0, 20).map(function (r) {
+      return { no: r.no, nama: r.nama, unit: r.unit, status: r.status, aktif: r.aktif };
+    }),
+    total: rows.length
   };
 }
 

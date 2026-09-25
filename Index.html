@@ -316,6 +316,14 @@
     .voucher-code { cursor: pointer; font-weight: 700; }
     .voucher-code:hover { color: var(--primary); }
     .voucher-card.dim { opacity: .5; }
+    .holder-picker { position: relative; }
+    .holder-picker-menu { position: absolute; top: calc(100% + .3rem); left: 0; right: 0; z-index: 1030; max-height: 320px; overflow-y: auto; padding: .3rem; background: #fff; border: 1px solid var(--bs-border-color); border-radius: .7rem; box-shadow: 0 .8rem 2rem rgba(15,23,42,.16); }
+    .holder-picker-menu[hidden] { display: none; }
+    .holder-picker-option { display: block; width: 100%; padding: .58rem .65rem; border: 0; border-radius: .5rem; background: #fff; color: #0f172a; text-align: left; }
+    .holder-picker-option:hover, .holder-picker-option.active { background: #fff1f2; }
+    .holder-picker-name { display: block; font-size: .86rem; font-weight: 700; line-height: 1.25; }
+    .holder-picker-meta { display: block; margin-top: .16rem; color: var(--muted); font-size: .73rem; line-height: 1.3; }
+    .holder-picker-message { padding: .7rem .65rem; color: var(--muted); font-size: .8rem; text-align: center; }
     @media (max-width: 991.98px) {
       .sidebar {
         position: fixed; top: 0; left: 0; bottom: 0; z-index: 1040;
@@ -409,7 +417,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.40</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.41</div>
       </div>
     </div>
   </div>
@@ -444,7 +452,7 @@
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.40</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.41</small>
     </div>
   </aside>
 
@@ -879,10 +887,22 @@
               </div>
             </div>
             <div class="col-md-9">
-              <label class="form-label small text-muted" for="rv-no" id="rv-no-label">No Anggota</label>
-              <div class="input-group">
-                <input id="rv-no" class="form-control" placeholder="contoh: A0001">
-                <button class="btn btn-primary" onclick="cariVoucher()"><i class="bi bi-patch-check"></i>Verifikasi</button>
+              <div class="row g-3">
+                <div class="col-md-5">
+                  <label class="form-label small text-muted" for="rv-no" id="rv-no-label">No Anggota</label>
+                  <div class="input-group">
+                    <input id="rv-no" class="form-control" placeholder="contoh: A0001">
+                    <button class="btn btn-primary" onclick="cariVoucher()"><i class="bi bi-patch-check"></i>Verifikasi</button>
+                  </div>
+                </div>
+                <div class="col-md-7">
+                  <label class="form-label small text-muted" for="rv-name" id="rv-name-label">Cari Nama Anggota</label>
+                  <div class="holder-picker" id="rv-name-wrap">
+                    <input id="rv-name" class="form-control" placeholder="Ketik nama, lalu pilih hasil" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="rv-name-results" oninput="searchRvName()" onfocus="searchRvName()" onkeydown="rvNameKey(event)">
+                    <div id="rv-name-results" class="holder-picker-menu" role="listbox" hidden></div>
+                  </div>
+                  <div class="form-text">Pilih nama untuk mengisi identitas dan menampilkan vouchernya.</div>
+                </div>
               </div>
             </div>
           </div>
@@ -2449,6 +2469,9 @@
     rvKind: 'anggota',
     rvBarcodeTarget: '',
     rvBarcodeBusy: false,
+    rvNameResults: [],
+    rvNameIndex: -1,
+    rvNameSeq: 0,
     rpKind: 'anggota',
     bcastFilter: 'semua',
     notifPage: null,
@@ -2496,6 +2519,7 @@
     searchAnggota();
   }
   var searchKaryawan = debounce(function () { PAGE.karyawan.page = 1; renderKaryawan(); });
+  var searchRvName = debounce(cariVoucherName, 350);
   var searchPiutang = debounce(function () { PAGE.piutang.page = 1; loadPiutang(true); });
   var searchMutasi = debounce(function () { PAGE.mutasi.page = 1; loadMutasi(true); });
   var searchVoucher = debounce(function () { PAGE.voucher.page = 1; loadVoucher(true); });
@@ -4050,9 +4074,133 @@
     $('rv-type-k').classList.toggle('active', kary);
     $('rv-no-label').textContent = kary ? 'NIP' : 'No Anggota';
     $('rv-no').placeholder = kary ? 'contoh: 11111002' : 'contoh: A0001';
+    $('rv-name-label').textContent = kary ? 'Cari Nama Karyawan' : 'Cari Nama Anggota';
+    $('rv-name').placeholder = kary ? 'Ketik nama karyawan' : 'Ketik nama anggota';
     $('rv-no').value = '';
+    $('rv-name').value = '';
     $('rv-barcode').value = '';
+    STATE.rvNameSeq++;
+    hideRvNameResults();
     clearRvResult();
+  }
+
+  function hideRvNameResults() {
+    var input = $('rv-name');
+    var menu = $('rv-name-results');
+    STATE.rvNameResults = [];
+    STATE.rvNameIndex = -1;
+    if (input) {
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+    }
+    if (menu) menu.hidden = true;
+  }
+
+  function showRvNameMessage(message) {
+    var input = $('rv-name');
+    var menu = $('rv-name-results');
+    STATE.rvNameResults = [];
+    STATE.rvNameIndex = -1;
+    input.removeAttribute('aria-activedescendant');
+    menu.innerHTML = '<div class="holder-picker-message">' + esc(message) + '</div>';
+    menu.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+  }
+
+  function renderRvNameResults(list, kind) {
+    var input = $('rv-name');
+    var menu = $('rv-name-results');
+    list = Array.isArray(list) ? list : [];
+    STATE.rvNameResults = list;
+    STATE.rvNameIndex = -1;
+    if (!list.length) {
+      showRvNameMessage('Nama tidak ditemukan.');
+      return;
+    }
+    var idLabel = kind === 'karyawan' ? 'NIP' : 'No Anggota';
+    var unitLabel = kind === 'karyawan' ? 'Bagian' : 'Kelompok';
+    menu.innerHTML = list.map(function (p, i) {
+      return '<button type="button" id="rv-name-option-' + i + '" class="holder-picker-option" role="option" aria-selected="false" onmousedown="event.preventDefault()" onclick="pilihRvName(' + i + ')">' +
+        '<span class="holder-picker-name">' + esc(p.nama) + '</span>' +
+        '<span class="holder-picker-meta">' + idLabel + ': ' + esc(p.no) + ' &middot; ' + unitLabel + ': ' + esc(p.unit || '-') + '</span>' +
+        '</button>';
+    }).join('');
+    menu.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+  }
+
+  function setRvNameIndex(index) {
+    var options = document.querySelectorAll('.holder-picker-option');
+    if (!options.length) return;
+    STATE.rvNameIndex = (index + options.length) % options.length;
+    Array.prototype.forEach.call(options, function (el, i) {
+      var active = i === STATE.rvNameIndex;
+      el.classList.toggle('active', active);
+      el.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    var selected = options[STATE.rvNameIndex];
+    $('rv-name').setAttribute('aria-activedescendant', selected.id);
+    try { selected.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+  }
+
+  function rvNameKey(e) {
+    var menu = $('rv-name-results');
+    if (!menu || menu.hidden) return;
+    if (e.key === 'ArrowDown' || e.keyCode === 40) {
+      e.preventDefault();
+      setRvNameIndex(STATE.rvNameIndex + 1);
+      return;
+    }
+    if (e.key === 'ArrowUp' || e.keyCode === 38) {
+      e.preventDefault();
+      setRvNameIndex(STATE.rvNameIndex - 1);
+      return;
+    }
+    if ((e.key === 'Enter' || e.keyCode === 13) && STATE.rvNameResults.length) {
+      e.preventDefault();
+      pilihRvName(STATE.rvNameIndex < 0 ? 0 : STATE.rvNameIndex);
+      return;
+    }
+    if (e.key === 'Escape' || e.keyCode === 27) {
+      e.preventDefault();
+      STATE.rvNameSeq++;
+      hideRvNameResults();
+    }
+  }
+
+  function pilihRvName(index) {
+    var p = STATE.rvNameResults[index];
+    if (!p) return;
+    STATE.rvNameSeq++;
+    $('rv-no').value = p.no;
+    $('rv-name').value = p.nama;
+    hideRvNameResults();
+    cariVoucher();
+  }
+
+  function cariVoucherName() {
+    var input = $('rv-name');
+    if (!input) return;
+    var nama = input.value.trim();
+    var seq = ++STATE.rvNameSeq;
+    if (!nama) { hideRvNameResults(); return; }
+    if (nama.length < 2) { showRvNameMessage('Ketik minimal 2 karakter.'); return; }
+    var kind = STATE.rvKind;
+    showRvNameMessage('Mencari nama...');
+    google.script.run
+      .withSuccessHandler(function (r) {
+        if (STATE.rvKind !== kind || STATE.rvNameSeq !== seq || input.value.trim() !== nama) return;
+        if (!r || !r.ok) {
+          showRvNameMessage((r && r.message) || 'Gagal mencari nama.');
+          return;
+        }
+        renderRvNameResults(r.list, kind);
+      })
+      .withFailureHandler(function (e) {
+        if (STATE.rvKind !== kind || STATE.rvNameSeq !== seq) return;
+        showRvNameMessage('Error: ' + e.message);
+      })
+      .cariPemegangNama({ kind: kind, nama: nama });
   }
 
   function rpType(kind) {
@@ -4159,6 +4307,8 @@
   function cariVoucher() {
     var _cv0 = performance.now();
     var no = $('rv-no').value.trim();
+    STATE.rvNameSeq++;
+    hideRvNameResults();
     if (!no) { showToast('Masukkan ' + (STATE.rvKind === 'karyawan' ? 'NIP' : 'No Anggota') + '.', true); return; }
     var kind = STATE.rvKind;
     clearRvResult();
@@ -4204,6 +4354,9 @@
         }
         var owner = String(r.no || (r.voucher && (r.voucher.NIP || r.voucher.NoAnggota)) || '').trim();
         if (owner) $('rv-no').value = owner;
+        $('rv-name').value = r.holder && r.holder.Nama ? r.holder.Nama : '';
+        STATE.rvNameSeq++;
+        hideRvNameResults();
         renderRvLookup(r, owner, kind, r.barcode || code);
         $('rv-nota').focus();
         console.log('[PERF] cariVoucherBarcode=' + Math.round(performance.now() - _cb0) + 'ms');
@@ -6186,6 +6339,13 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
     $('l-sampai').value = today.toISOString().slice(0, 10);
     document.body.addEventListener('click', function (e) {
       if (e.target === document.body && document.body.classList.contains('sidebar-open')) document.body.classList.remove('sidebar-open');
+    });
+    document.addEventListener('mousedown', function (e) {
+      var wrap = $('rv-name-wrap');
+      if (wrap && !wrap.contains(e.target)) {
+        STATE.rvNameSeq++;
+        hideRvNameResults();
+      }
     });
     koreksiCelahAtas_();
     setTimeout(koreksiCelahAtas_, 400);
