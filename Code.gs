@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.43';
+var APP_VERSION = '2.0.44';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -4855,6 +4855,7 @@ function getLaporanVoucherAnggota(data) {
   var kind = data.kind === 'karyawan' ? 'karyawan' : 'anggota';
   var u = validasiSesi(String(data.token || '').trim());
   if (!u) return { ok: false, message: 'Sesi berakhir. Silakan login kembali.', list: [], total: 0, page: 1, pages: 1, pageSize: 0, summary: emptyLaporanVoucherSummary_(), kelompok: [] };
+  if (normRole_(u.Role) !== 'admin') return getErrorObj_('Hanya admin yang dapat mengakses Laporan Voucher.');
 
   var isK = kind === 'karyawan';
   var res = isK
@@ -4969,6 +4970,7 @@ function getLaporanWajibBelanja(data) {
   var kind = data.kind === 'karyawan' ? 'karyawan' : 'anggota';
   var u = validasiSesi(String(data.token || '').trim());
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
+  if (normRole_(u.Role) !== 'admin') return getErrorObj_('Hanya admin yang dapat mengakses Laporan Wajib Belanja.');
 
   var voucherRes = kind === 'karyawan'
     ? readMirrorSheet_('karyawan', 'voucher', normalizeVoucherKaryawan_, 'voucher karyawan')
@@ -5103,6 +5105,7 @@ function getAuditRedeem(data) {
   var isK = kind === 'karyawan';
   var u = validasiSesi(String(data.token || '').trim());
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
+  if (normRole_(u.Role) !== 'admin') return getErrorObj_('Hanya admin yang dapat mengakses Audit Data Redeem.');
 
   var voucherRes = kind === 'karyawan'
     ? readMirrorSheet_('karyawan', 'voucher', normalizeVoucherKaryawan_, 'voucher karyawan')

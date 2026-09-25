@@ -492,7 +492,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.43</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.44</div>
       </div>
     </div>
   </div>
@@ -515,19 +515,19 @@
           <button id="nav-karyawan" class="nav-link" onclick="showPage('karyawan')"><i class="bi bi-person-workspace"></i><span>Karyawan</span></button>
         </div>
       </div>
-      <button id="nav-voucher" class="nav-link" onclick="showPage('voucher')"><i class="bi bi-stars"></i><span>Voucher</span></button>
+      <button id="nav-voucher" class="nav-link admin-only" onclick="showPage('voucher')" style="display:none"><i class="bi bi-stars"></i><span>Voucher</span></button>
       <button id="nav-notifikasi" class="nav-link" onclick="showPage('notifikasi')"><i class="bi bi-bell-fill"></i><span>Notifikasi</span></button>
       <button id="nav-broadcast" class="nav-link" onclick="showPage('broadcast')"><i class="bi bi-send"></i><span>Broadcast</span></button>
-      <button id="nav-laporan" class="nav-link" onclick="showPage('laporan')"><i class="bi bi-clipboard-data"></i><span>Laporan</span></button>
-      <button id="nav-laporan-voucher" class="nav-link" onclick="showPage('laporan-voucher')"><i class="bi bi-ticket-detailed"></i><span>Laporan Voucher</span></button>
-      <button id="nav-laporan-wjb" class="nav-link" onclick="showPage('laporan-wjb')"><i class="bi bi-cart-check"></i><span>Laporan Wajib Belanja</span></button>
-      <button id="nav-audit-redeem" class="nav-link" onclick="showPage('audit-redeem')"><i class="bi bi-shield-exclamation"></i><span>Audit Data Redeem</span></button>
+      <button id="nav-laporan" class="nav-link admin-only" onclick="showPage('laporan')" style="display:none"><i class="bi bi-clipboard-data"></i><span>Laporan</span></button>
+      <button id="nav-laporan-voucher" class="nav-link admin-only" onclick="showPage('laporan-voucher')" style="display:none"><i class="bi bi-ticket-detailed"></i><span>Laporan Voucher</span></button>
+      <button id="nav-laporan-wjb" class="nav-link admin-only" onclick="showPage('laporan-wjb')" style="display:none"><i class="bi bi-cart-check"></i><span>Laporan Wajib Belanja</span></button>
+      <button id="nav-audit-redeem" class="nav-link admin-only" onclick="showPage('audit-redeem')" style="display:none"><i class="bi bi-shield-exclamation"></i><span>Audit Data Redeem</span></button>
       <button id="nav-pengguna" class="nav-link admin-only" onclick="showPage('pengguna')" style="display:none"><i class="bi bi-people-fill"></i><span>Pengguna</span></button>
-      <button id="nav-pengaturan" class="nav-link" onclick="showPage('pengaturan')"><i class="bi bi-gear-fill"></i><span>Pengaturan</span></button>
+      <button id="nav-pengaturan" class="nav-link admin-only" onclick="showPage('pengaturan')" style="display:none"><i class="bi bi-gear-fill"></i><span>Pengaturan</span></button>
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.43</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.44</small>
     </div>
   </aside>
 
@@ -2740,11 +2740,17 @@
   function clearSesi() {
     try { localStorage.removeItem('sparta_sesi'); sessionStorage.removeItem('sparta_sesi'); } catch (e) {}
     SESSION.token = '';
+    SESSION.KodeToko = '';
+    SESSION.NamaToko = '';
+    SESSION.username = '';
+    SESSION.role = '';
+    setAdminMenuAccess(false);
   }
 
   function showKembaliLogin() {
     var ov = $('login-overlay');
     if (ov) ov.classList.remove('d-none');
+    setAdminMenuAccess(false);
     var ps = document.querySelectorAll('.page');
     for (var i = 0; i < ps.length; i++) ps[i].classList.remove('active');
     var nav = document.querySelectorAll('.sidebar-nav .nav-link');
@@ -2798,6 +2804,8 @@
         SESSION.KodeToko = (d.user && d.user.KodeToko) || '';
         SESSION.NamaToko = (d.user && d.user.NamaToko) || '';
         SESSION.username = (d.user && d.user.Username) || '';
+        SESSION.role = (d.user && String(d.user.Role || '').toLowerCase() === 'admin') ? 'admin' : 'kasir';
+        setAdminMenuAccess(SESSION.role === 'admin');
         var ov = $('login-overlay');
         if (ov) ov.classList.add('d-none');
         loadProfile();
@@ -2820,6 +2828,8 @@
         SESSION.KodeToko = d.KodeToko || '';
         SESSION.NamaToko = d.NamaToko || '';
         SESSION.username = d.Username || '';
+        SESSION.role = String(d.Role || '').toLowerCase() === 'admin' ? 'admin' : 'kasir';
+        setAdminMenuAccess(SESSION.role === 'admin');
         var ov = $('login-overlay');
         if (ov && !ov.classList.contains('d-none')) ov.classList.add('d-none');
         loadProfile();
@@ -2841,23 +2851,17 @@
         SESSION.NamaToko = p.NamaToko || '';
         SESSION.username = p.username || '';
         SESSION.role = (p.role === 'admin') ? 'admin' : 'kasir';
+        var isAdmin = SESSION.role === 'admin';
+        setAdminMenuAccess(isAdmin);
         ['p-toko', 'pk-toko', 'm-toko'].forEach(function (id) {
           var el = $(id);
-          if (el) el.style.display = SESSION.role === 'admin' ? '' : 'none';
+          if (el) el.style.display = isAdmin ? '' : 'none';
         });
         if (typeof refreshNotaPreview === 'function') refreshNotaPreview();
         $('profile-name').textContent = name;
         $('profile-email').textContent = email;
         $('profile-email-li').textContent = email;
         $('profile-avatar').textContent = name.charAt(0).toUpperCase();
-        var npg = $('nav-pengguna');
-        if (npg) npg.style.display = (p.role === 'admin') ? '' : 'none';
-        var nVch = $('nav-voucher');
-        if (nVch) nVch.style.display = (p.role === 'admin') ? '' : 'none';
-        var nLap = $('nav-laporan');
-        if (nLap) nLap.style.display = (p.role === 'admin') ? '' : 'none';
-        var npgr = $('nav-pengaturan');
-        if (npgr) npgr.style.display = (p.role === 'admin') ? '' : 'none';
         var broadcastBtn = $('broadcast-btn');
         if (broadcastBtn) broadcastBtn.style.display = '';
         var bell = $('notif-bell-dropdown');
@@ -3059,8 +3063,20 @@
   }
 
   var PAGE_TITLES = { dashboard: 'Dashboard', anggota: 'Data Anggota', karyawan: 'Data Karyawan', piutang: 'Data Kredit', redeem: 'Transaksi', mutasi: 'Mutasi Voucher', voucher: 'Voucher', notifikasi: 'Notifikasi', broadcast: 'Broadcast', laporan: 'Laporan', 'laporan-voucher': 'Laporan Voucher Anggota', 'laporan-wjb': 'Laporan Wajib Belanja', 'audit-redeem': 'Audit Data Redeem', pengguna: 'Pengguna & Login', pengaturan: 'Pengaturan' };
+  var ADMIN_ONLY_PAGES = { laporan: true, 'laporan-voucher': true, 'laporan-wjb': true, 'audit-redeem': true, pengguna: true, pengaturan: true, voucher: true };
+
+  function setAdminMenuAccess(isAdmin) {
+    document.querySelectorAll('#sidebar-nav .admin-only').forEach(function (el) {
+      el.style.display = isAdmin ? '' : 'none';
+    });
+  }
 
   function showPage(name) {
+    if (ADMIN_ONLY_PAGES[name] && SESSION.role !== 'admin') {
+      showToast('Menu ini hanya dapat diakses oleh admin.', true);
+      showPage('dashboard');
+      return;
+    }
     document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
     document.querySelectorAll('nav button').forEach(function (b) { b.classList.remove('active'); });
     $('page-' + name).classList.add('active');
