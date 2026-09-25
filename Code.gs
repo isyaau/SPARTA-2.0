@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.47';
+var APP_VERSION = '2.0.48';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -34,6 +34,7 @@ var BUKTI_PIUTANG_FOLDER_ID = '1hqHPBr0duB5Ffyrmy5K7mzcpzMZ8DWC';
 // Dipakai saat dieksekusi lewat Apps Script Execution API (tidak ada
 // "active spreadsheet"); fallback getId() di localSpreadsheetId_.
 var SPARTA_MAIN_ID = '1AJ5C-sKWympMrCJssqd-ahid3P6MAhy572T11_83GH8';
+var SYNC_MUTASI_KARYAWAN_SECRET_SHA256 = 'wFx2wgkz0f9WCzFMsu+7Q/S3aeMfOeDiUEDE3mDKRlA=';
 
 /**
  * KONFIGURASI (ubah langsung di sini)
@@ -1540,6 +1541,14 @@ function sinkronisasiData() {
   if (gagal.length) pesan += '\nGagal:\n- ' + gagal.join('\n- ');
   ui.alert('Sinkronisasi Data', pesan, ui.ButtonSet.OK);
   return { ok: ok === hasil.length, pesan: pesan, detail: hasil };
+}
+
+function sinkronisasiMutasiKaryawan(data) {
+  data = data || {};
+  var secret = String(data.secret || '');
+  var digest = Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, secret, Utilities.Charset.UTF_8));
+  if (digest !== SYNC_MUTASI_KARYAWAN_SECRET_SHA256) return { ok: false, kind: 'karyawan', table: 'mutasi', rows: 0, message: 'Unauthorized.' };
+  return syncSatu_('karyawan', 'mutasi', getMutasiConfig_('karyawan'));
 }
 
 function syncSatu_(kind, table, conf) {

@@ -179,9 +179,21 @@ function json(obj, status) {
   });
 }
 
+function validSyncSecret(request, env) {
+  const expected = String(env.SPARTA_SYNC_SECRET || '');
+  const authorization = String(request.headers.get('authorization') || '');
+  return !!expected && authorization === 'Bearer ' + expected;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    if (url.pathname === '/sync-mutasi-karyawan') {
+      if (request.method !== 'POST') return json({ error: { message: 'Method not allowed' } }, 405);
+      if (!validSyncSecret(request, env)) return json({ error: { message: 'Unauthorized' } }, 401);
+      return json(await runScript('sinkronisasiMutasiKaryawan', [{ secret: env.SPARTA_SYNC_SECRET }], env));
+    }
 
     if (url.pathname.startsWith('/api')) {
       if (request.method !== 'POST') return json({ error: { message: 'Method not allowed' } }, 405);
@@ -189,6 +201,7 @@ export default {
       try { body = await request.json(); } catch (e) { body = {}; }
       const fn = typeof body.fn === 'string' ? body.fn : '';
       if (!fn) return json({ error: { message: 'fn wajib diisi' } }, 400);
+      if (fn === 'sinkronisasiMutasiKaryawan') return json({ error: { message: 'Gunakan endpoint sinkronisasi terproteksi.' } }, 403);
       const args = Array.isArray(body.args) ? body.args : [];
       try {
         const out = await runScript(fn, args, env);
