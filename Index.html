@@ -409,7 +409,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.39</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.40</div>
       </div>
     </div>
   </div>
@@ -444,7 +444,7 @@
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.39</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.40</small>
     </div>
   </aside>
 
@@ -887,7 +887,16 @@
             </div>
           </div>
           <div class="row g-3 align-items-end">
-            <div class="col-md-6">
+            <div class="col-md-7">
+              <label class="form-label small text-muted" for="rv-barcode">Pindai Barcode Voucher</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light text-muted"><i class="bi bi-upc-scan"></i></span>
+                <input id="rv-barcode" class="form-control" placeholder="Scan Kode Voucher lalu Enter" autocomplete="off" inputmode="numeric" onkeydown="rvBarcodeKey(event)">
+                <button type="button" class="btn btn-outline-primary" onclick="cariVoucherBarcode()">Cari Barcode</button>
+              </div>
+              <div class="form-text">Pindai satu kode voucher untuk mencari dan memilihnya otomatis.</div>
+            </div>
+            <div class="col-md-5">
               <label class="form-label small text-muted" for="rv-nota">4 Digit Akhir Nota *</label>
               <div class="input-group">
                 <span class="input-group-text bg-light text-muted" id="rv-nota-prefix">-</span>
@@ -895,10 +904,10 @@
               </div>
             </div>
           </div>
-          <div id="rv-info" class="stat-row mb-3"><span>Ketik No Anggota / NIP lalu tekan Verifikasi.</span><span></span></div>
+          <div id="rv-info" class="stat-row mb-3"><span>Pindai barcode untuk satu voucher, atau ketik No Anggota / NIP lalu tekan Verifikasi.</span><span></span></div>
           <div id="rv-kartu"></div>
           <div id="rv-tabel" class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
-            <div class="col-12"><div class="empty">Belum ada pencarian. Ketik No Anggota / NIP lalu tekan Verifikasi.</div></div>
+            <div class="col-12"><div class="empty">Pindai barcode atau ketik No Anggota / NIP lalu tekan Verifikasi.</div></div>
           </div>
           <div class="d-flex flex-wrap align-items-center gap-3 mt-3 pt-3 border-top">
             <button class="btn btn-success" id="rv-redeem-btn" onclick="redeemVoucherAct()" disabled><i class="bi bi-check2-circle"></i>Redeem Terpilih</button>
@@ -2438,6 +2447,8 @@
     arAll: null,
     arKind: 'anggota',
     rvKind: 'anggota',
+    rvBarcodeTarget: '',
+    rvBarcodeBusy: false,
     rpKind: 'anggota',
     bcastFilter: 'semua',
     notifPage: null,
@@ -4024,6 +4035,12 @@
       $('rm-tab-' + n).classList.toggle('active', n === name);
       $('rm-panel-' + n).style.display = n === name ? '' : 'none';
     });
+    if (name === 'voucher') {
+      setTimeout(function () {
+        var barcode = $('rv-barcode');
+        if (barcode && document.activeElement !== $('rv-no')) barcode.focus();
+      }, 0);
+    }
   }
 
   function rvType(kind) {
@@ -4033,6 +4050,8 @@
     $('rv-type-k').classList.toggle('active', kary);
     $('rv-no-label').textContent = kary ? 'NIP' : 'No Anggota';
     $('rv-no').placeholder = kary ? 'contoh: 11111002' : 'contoh: A0001';
+    $('rv-no').value = '';
+    $('rv-barcode').value = '';
     clearRvResult();
   }
 
@@ -4063,67 +4082,140 @@
   function clearRvResult() {
     STATE.rvList = [];
     STATE.rvHolder = null;
-    $('rv-tabel').innerHTML = '<div class="col-12"><div class="empty">Belum ada pencarian. Ketik No Anggota / NIP lalu tekan Verifikasi.</div></div>';
-    $('rv-info').innerHTML = '<span>Ketik No Anggota / NIP lalu tekan Verifikasi.</span><span></span>';
+    STATE.rvBarcodeTarget = '';
+    $('rv-barcode').value = '';
+    $('rv-tabel').innerHTML = '<div class="col-12"><div class="empty">Pindai barcode atau ketik No Anggota / NIP lalu tekan Verifikasi.</div></div>';
+    $('rv-info').innerHTML = '<span>Pindai barcode untuk satu voucher, atau ketik No Anggota / NIP lalu tekan Verifikasi.</span><span></span>';
     $('rv-kartu').innerHTML = '';
     $('rv-checkall').checked = false;
     $('rv-redeem-btn').disabled = true;
     $('rv-sum').textContent = '0 voucher terpilih';
   }
 
+  function rvBarcodeKey(e) {
+    if (e.key === 'Enter' || e.keyCode === 13) {
+      e.preventDefault();
+      if (!e.repeat) cariVoucherBarcode();
+    }
+  }
+
+  function renderRvLookup(r, no, kind, barcodeKode) {
+    r = r || {};
+    var target = barcodeKode ? String(r.barcode || barcodeKode) : '';
+    var list = Array.isArray(r.list) ? r.list.slice() : [];
+    if (target) list = list.filter(function (v) { return String(v.Kode) === target; });
+    STATE.rvList = list;
+    STATE.rvHolder = r.holder || null;
+    STATE.rvBarcodeTarget = target;
+    var a = $('rv-info');
+    var kary = kind === 'karyawan';
+    if (!list.length) {
+      $('rv-kartu').innerHTML = r.holder ? renderKartuPemegang(r.holder, kary) : '';
+      var pesanKosong = r.holder
+        ? (target ? 'Barcode tidak menghasilkan voucher untuk ' + esc(no) + '.' : 'Identitas ditemukan di master, namun belum ada voucher untuk ' + esc(no) + '. Catat kredit tetap bisa dilakukan di tab Catat Kredit.')
+        : (target ? 'Voucher untuk barcode ' + esc(target) + ' tidak ditemukan.' : 'Tidak ada voucher untuk ' + esc(no) + '.');
+      $('rv-tabel').innerHTML = '<div class="col-12"><div class="empty">' + pesanKosong + '</div></div>';
+      a.innerHTML = '<span>' + (r.holder ? 'Ditemukan di master ' + (kary ? 'Data Karyawan' : 'Anggota') + ' &middot; belum ada voucher.' : 'Tidak ada voucher ditemukan.') + '</span><span></span>';
+    } else {
+      $('rv-kartu').innerHTML = renderKartuPemegang(r.holder, kary);
+      if (target) {
+        var status = String(list[0].Status || '');
+        a.innerHTML = '<span>Barcode <b>' + esc(target) + '</b> ditemukan &middot; ' + (status === 'Active' ? 'siap dipilih setelah isi 4 digit nota.' : 'tidak dapat diredeem (' + esc(status || 'status tidak dikenal') + ').') + '</span><span></span>';
+      } else {
+        a.innerHTML = '<span>' + r.active + ' aktif &middot; Nilai ' + formatIDR(r.totalActive) + ' / Total ' + formatIDR(r.total) + '</span>';
+      }
+      $('rv-tabel').innerHTML = list.map(function (v) {
+        var act = String(v.Status) === 'Active';
+        return '<div class="col">' +
+          '<div class="card h-100 voucher-card' + (act ? '' : ' dim') + '">' +
+          '<div class="card-body">' +
+          '<div class="d-flex justify-content-between align-items-start gap-2">' +
+          '<div class="min-w-0">' +
+          '<div class="fs-6 voucher-code" title="Klik untuk salin kode" onclick="salinKode(\'' + esc(v.Kode) + '\')">' + esc(v.Kode) + ' <i class="bi bi-clipboard"></i></div>' +
+          '<div class="sub">' + esc(v.Label) + '</div>' +
+          '</div>' +
+          '<input type="checkbox" class="rv-check form-check-input mt-1" value="' + esc(v.Kode) + '"' + (act ? '' : ' disabled') + ' onchange="updateRvSum()">' +
+          '</div>' +
+          '<div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">' +
+          '<span class="fs-5 fw-bold text-danger">' + formatIDR(v.Nilai) + '</span>' +
+          '<span>' + badge(v.Status) + '</span>' +
+          '</div>' +
+          '<div class="sub mt-2">Aktif mulai: ' + esc(v.AktifMulai) + (v.ExpDate ? ' &middot; Exp: ' + esc(v.ExpDate) : '') + '</div>' +
+          '</div>' +
+          '</div>' +
+          '</div>';
+      }).join('');
+    }
+    $('rv-checkall').checked = false;
+    if (target) {
+      Array.prototype.forEach.call(document.querySelectorAll('.rv-check:not([disabled])'), function (b) {
+        if (b.value === target) b.checked = true;
+      });
+    }
+    $('rv-redeem-btn').disabled = true;
+    updateRvSum();
+  }
+
   function cariVoucher() {
     var _cv0 = performance.now();
     var no = $('rv-no').value.trim();
     if (!no) { showToast('Masukkan ' + (STATE.rvKind === 'karyawan' ? 'NIP' : 'No Anggota') + '.', true); return; }
+    var kind = STATE.rvKind;
+    clearRvResult();
+    $('rv-no').value = no;
     busy(true, 'Mencari voucher...');
     google.script.run
       .withSuccessHandler(function (r) {
         busy(false);
-        if (!r.ok) { showToast(r.message || 'Gagal mencari voucher.', true); return; }
-        STATE.rvList = r.list;
-        STATE.rvHolder = r.holder || null;
-        var a = $('rv-info');
-        var kary = STATE.rvKind === 'karyawan';
-        if (!r.list.length) {
-          $('rv-kartu').innerHTML = r.holder ? renderKartuPemegang(r.holder, kary) : '';
-          var pesanKosong = r.holder
-            ? 'Identitas ditemukan di master, namun belum ada voucher untuk ' + esc(no) + '. Catat kredit tetap bisa dilakukan di tab Catat Kredit.'
-            : 'Tidak ada voucher untuk ' + esc(no) + '.';
-          $('rv-tabel').innerHTML = '<div class="col-12"><div class="empty">' + pesanKosong + '</div></div>';
-          a.innerHTML = '<span>' + (r.holder ? 'Ditemukan di master ' + (kary ? 'Data Karyawan' : 'Anggota') + ' &middot; belum ada voucher.' : 'Tidak ada voucher ditemukan.') + '</span><span></span>';
-        } else {
-          $('rv-kartu').innerHTML = renderKartuPemegang(r.holder, kary);
-          a.innerHTML =
-            '<span>' + r.active + ' aktif &middot; Nilai ' + formatIDR(r.totalActive) + ' / Total ' + formatIDR(r.total) + '</span>';
-          $('rv-tabel').innerHTML = r.list.map(function (v) {
-            var act = String(v.Status) === 'Active';
-            return '<div class="col">' +
-              '<div class="card h-100 voucher-card' + (act ? '' : ' dim') + '">' +
-              '<div class="card-body">' +
-              '<div class="d-flex justify-content-between align-items-start gap-2">' +
-              '<div class="min-w-0">' +
-              '<div class="fs-6 voucher-code" title="Klik untuk salin kode" onclick="salinKode(\'' + esc(v.Kode) + '\')">' + esc(v.Kode) + ' <i class="bi bi-clipboard"></i></div>' +
-              '<div class="sub">' + esc(v.Label) + '</div>' +
-              '</div>' +
-              '<input type="checkbox" class="rv-check form-check-input mt-1" value="' + esc(v.Kode) + '"' + (act ? '' : ' disabled') + ' onchange="updateRvSum()">' +
-              '</div>' +
-              '<div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">' +
-              '<span class="fs-5 fw-bold text-danger">' + formatIDR(v.Nilai) + '</span>' +
-              '<span>' + badge(v.Status) + '</span>' +
-              '</div>' +
-              '<div class="sub mt-2">Aktif mulai: ' + esc(v.AktifMulai) + (v.ExpDate ? ' &middot; Exp: ' + esc(v.ExpDate) : '') + '</div>' +
-              '</div>' +
-              '</div>' +
-              '</div>';
-          }).join('');
-        }
-        $('rv-checkall').checked = false;
-        $('rv-redeem-btn').disabled = true;
-        updateRvSum();
+        if (STATE.rvKind !== kind) return;
+        if (!r || !r.ok) { STATE.rvBarcodeTarget = ''; showToast((r && r.message) || 'Gagal mencari voucher.', true); return; }
+        renderRvLookup(r, no, kind, '');
         console.log('[PERF] cariVoucher=' + Math.round(performance.now() - _cv0) + 'ms');
       })
       .withFailureHandler(function (e) { busy(false); showToast('Error: ' + e.message, true); })
-      .getVouchersPemegang({ kind: STATE.rvKind, no: no });
+      .getVouchersPemegang({ kind: kind, no: no });
+  }
+
+  function cariVoucherBarcode() {
+    if (STATE.rvBarcodeBusy) return;
+    var code = $('rv-barcode').value.trim();
+    if (!code) {
+      showToast('Scan Kode Voucher terlebih dahulu.', true);
+      $('rv-barcode').focus();
+      return;
+    }
+    var kind = STATE.rvKind;
+    var _cb0 = performance.now();
+    clearRvResult();
+    $('rv-barcode').value = code;
+    STATE.rvBarcodeTarget = code;
+    STATE.rvBarcodeBusy = true;
+    busy(true, 'Mencari barcode voucher...');
+    google.script.run
+      .withSuccessHandler(function (r) {
+        busy(false);
+        STATE.rvBarcodeBusy = false;
+        if (STATE.rvKind !== kind) return;
+        if (!r || !r.ok) {
+          STATE.rvBarcodeTarget = '';
+          showToast((r && r.message) || 'Voucher barcode tidak ditemukan.', true);
+          $('rv-barcode').focus();
+          return;
+        }
+        var owner = String(r.no || (r.voucher && (r.voucher.NIP || r.voucher.NoAnggota)) || '').trim();
+        if (owner) $('rv-no').value = owner;
+        renderRvLookup(r, owner, kind, r.barcode || code);
+        $('rv-nota').focus();
+        console.log('[PERF] cariVoucherBarcode=' + Math.round(performance.now() - _cb0) + 'ms');
+      })
+      .withFailureHandler(function (e) {
+        busy(false);
+        STATE.rvBarcodeBusy = false;
+        if (STATE.rvKind === kind) STATE.rvBarcodeTarget = '';
+        showToast('Error: ' + e.message, true);
+        $('rv-barcode').focus();
+      })
+      .getVoucherByKode({ token: SESSION.token, kind: kind, kode: code });
   }
 
   function rvCheckAll(checked) {
@@ -4186,9 +4278,12 @@ function padDigit(s, n) {
   }
 
   function redeemVoucherAct() {
+    var kind = STATE.rvKind;
+    var no = $('rv-no').value.trim();
     var kodelist = [];
     Array.prototype.forEach.call(document.querySelectorAll('.rv-check:checked'), function (b) { kodelist.push(b.value); });
     if (!kodelist.length) { showToast('Pilih voucher terlebih dahulu.', true); return; }
+    if (!no) { showToast('Identitas pemegang belum tersedia.', true); return; }
     if (!/^\d{4}$/.test(String($('rv-nota').value || '').trim())) { showToast('4 digit akhir nota wajib diisi (4 digit angka).', true); return; }
     var catat = $('rv-catat').checked;
     var jumlah = catat ? parseInt($('rv-cjml').value, 10) : 0;
@@ -4200,17 +4295,17 @@ function padDigit(s, n) {
     var h = STATE.rvHolder || {};
     var masuk = selected[0] || {};
     var nama = h.Nama || masuk.Nama || '-';
-    var no = STATE.rvKind === 'karyawan' ? (h.NIP || h.No || '-') : (h.NoAnggota || h.No || '-');
-    var grup = STATE.rvKind === 'karyawan' ? (h.Bagian || '-') : (h.Kelompok || '-');
+    var displayNo = kind === 'karyawan' ? (h.NIP || no) : (h.NoAnggota || no);
+    var grup = kind === 'karyawan' ? (h.Bagian || '-') : (h.Kelompok || '-');
     $('rv-cf-hero').innerHTML =
       '<div class="detail-avatar">' + esc(String(nama).trim().charAt(0).toUpperCase() || '?') + '</div>' +
       '<div class="flex-grow-1 min-w-0">' +
       '<h6 class="mb-1 fw-bold">' + esc(nama) + '</h6>' +
       '<div class="d-flex align-items-center gap-2 flex-wrap">' +
-      '<span class="sub">' + (STATE.rvKind === 'karyawan' ? 'NIP: ' : 'No Anggota: ') + esc(no) + '</span>' +
-      '<span class="sub">' + (STATE.rvKind === 'karyawan' ? 'Bagian: ' : 'Kelompok: ') + esc(grup) + '</span>' +
+      '<span class="sub">' + (kind === 'karyawan' ? 'NIP: ' : 'No Anggota: ') + esc(displayNo) + '</span>' +
+      '<span class="sub">' + (kind === 'karyawan' ? 'Bagian: ' : 'Kelompok: ') + esc(grup) + '</span>' +
       '</div></div>' +
-      '<span class="badge ' + (STATE.rvKind === 'karyawan' ? 'text-bg-primary' : 'text-bg-success') + '">' + (STATE.rvKind === 'karyawan' ? 'Karyawan' : 'Anggota') + '</span>';
+      '<span class="badge ' + (kind === 'karyawan' ? 'text-bg-primary' : 'text-bg-success') + '">' + (kind === 'karyawan' ? 'Karyawan' : 'Anggota') + '</span>';
 
     $('rv-cf-items').innerHTML = selected.map(function (v) {
       return '<tr><td><b>' + esc(v.Kode) + '</b></td><td>' + esc(v.Label || '') + '</td><td class="text-end">' + formatIDR(v.Nilai) + '</td></tr>';
@@ -4227,7 +4322,7 @@ function padDigit(s, n) {
       ? '<i class="bi bi-journal-plus me-1"></i>Sekalian catat kredit baru sebesar <b>' + formatIDR(jumlah) + '</b>.'
       : '<i class="bi bi-info-circle me-1"></i>Kredit tidak dicatat.';
 
-    window._redeemConfirm = { kodelist: kodelist, catat: catat, jumlah: jumlah };
+    window._redeemConfirm = { kodelist: kodelist, catat: catat, jumlah: jumlah, kind: kind, no: no, nota: nota4 };
     bukaModal('modal-konfirmasi-redeem');
   }
 
@@ -4239,7 +4334,7 @@ function padDigit(s, n) {
   function redeemConfirmYa() {
     var k = window._redeemConfirm;
     redeemConfirmTutup();
-    if (k) doRedeemVoucher(k.kodelist, k.catat, k.jumlah);
+    if (k) doRedeemVoucher(k.kodelist, k.catat, k.jumlah, k.kind, k.no, k.nota);
   }
 
   function strukTutup() {
@@ -4286,31 +4381,37 @@ function padDigit(s, n) {
     bukaModal('modal-struk');
   }
 
-  function doRedeemVoucher(kodelist, catat, jumlah) {
+  function doRedeemVoucher(kodelist, catat, jumlah, kind, no, nota) {
+    kind = kind || STATE.rvKind;
+    no = no || $('rv-no').value.trim();
+    nota = nota == null ? ($('rv-nota').value || '').trim() : nota;
     var _rf0 = performance.now();
     busy(true, 'Menyimpan transaksi redeem...');
     google.script.run
       .withSuccessHandler(function (r) {
         busy(false);
         console.log('[PERF] redeemVoucher server=' + ((r && r.ms != null) ? r.ms : '?') + 'ms client=' + Math.round(performance.now() - _rf0) + 'ms' + ' seg=' + JSON.stringify((r && r.perf) || {}));
-        showToast(r.message || 'Selesai.', !r.ok);
-        if (r.ok) {
+        showToast((r && r.message) || 'Selesai.', !r || !r.ok);
+        if (r && r.ok) {
           $('rv-catat').checked = false;
           rvCatat(false);
-          if (rvBuktiBase64 && r.piutangId) pUploadBukti(STATE.rvKind, r.piutangId, rvBuktiBase64);
+          if (rvBuktiBase64 && r.piutangId) pUploadBukti(kind, r.piutangId, rvBuktiBase64);
           rvHapusBukti();
-          cariVoucher();
+          if (STATE.rvKind === kind) {
+            $('rv-barcode').value = '';
+            cariVoucher();
+          }
           loadDashboard();
           tampilkanStruk(r.struk);
         }
       })
       .withFailureHandler(function (e) { busy(false); showToast('Error: ' + e.message, true); })
       .redeemVoucher({
-        kind: STATE.rvKind,
+        kind: kind,
         kode: kodelist,
         Tanggal: todayStr(),
-        no: $('rv-no').value.trim(),
-        piutang: { catat: catat, Jumlah: jumlah, Nota: ($('rv-nota').value || '').trim() },
+        no: no,
+        piutang: { catat: catat, Jumlah: jumlah, Nota: nota },
         token: SESSION.token
       });
   }

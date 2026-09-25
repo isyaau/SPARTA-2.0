@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.39';
+var APP_VERSION = '2.0.40';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -3899,6 +3899,56 @@ function getVouchersPemegang(data) {
   };
 }
 
+function getVoucherByKode(data) {
+  data = data || {};
+  if (!validasiSesi(String(data.token || '').trim())) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
+  var kind = String(data.kind || 'anggota');
+  if (kind !== 'anggota' && kind !== 'karyawan') return getErrorObj_('Jenis pemegang barcode tidak valid.');
+  var isKaryawan = kind === 'karyawan';
+  var kode = normalizeKodeVoucher_(data.kode);
+  if (!kode) return getErrorObj_('Kode voucher barcode tidak boleh kosong.');
+  var conf = isKaryawan ? getVoucherKaryawanConfig_() : getVoucherConfig_();
+  var norm = isKaryawan ? normalizeVoucherKaryawan_ : normalizeVoucher_;
+  var res = readVoucherSheet_(conf.spreadsheetId, conf.sheetName, norm);
+  if (!res.ok) return getErrorObj_(res.message);
+  var list = (res.list || []).filter(function (v) {
+    return normalizeKodeVoucher_(v.Kode) === kode;
+  });
+  if (!list.length) return getErrorObj_('Voucher dengan Kode ' + kode + ' tidak ditemukan pada ' + (isKaryawan ? 'voucher karyawan' : 'voucher anggota') + '.');
+  if (list.length > 1) return getErrorObj_('Kode voucher ' + kode + ' ditemukan lebih dari sekali. Perbaiki data sumber sebelum redeem.');
+  var v = list[0];
+  var no = String(isKaryawan ? (v.NIP || '') : (v.NoAnggota || '')).trim();
+  if (!no) return getErrorObj_('Voucher ' + kode + ' tidak memiliki ' + (isKaryawan ? 'NIP' : 'No Anggota') + '.');
+  var pem = isKaryawan ? cariPemegangFallbackKaryawan_(no) : cariPemegangFallbackAnggota_(no);
+  var nama = String((pem && pem.Nama) || v.Nama || '');
+  var holder = lengkapiHolderPiutang_(isKaryawan, no, {
+    Nama: nama,
+    NIP: String((pem && pem.NIP) || (isKaryawan ? no : '')),
+    NoAnggota: String(isKaryawan ? ((pem && pem.NoAnggota) || '') : no),
+    Kelompok: String((pem && pem.Kelompok) || v.Kelompok || ''),
+    Bagian: String((pem && pem.Bagian) || v.Bagian || v.Unit || ''),
+    Foto: String((pem && pem.Foto) || v.Foto || '')
+  });
+  var active = String(v.Status) === 'Active';
+  return {
+    ok: true,
+    message: active ? 'Voucher barcode ditemukan.' : 'Voucher barcode ditemukan, tetapi statusnya ' + String(v.Status || 'tidak dikenal') + '.',
+    barcode: kode,
+    kind: kind,
+    no: no,
+    nama: nama,
+    identKunci: isKaryawan ? 'NIP' : 'NoAnggota',
+    grupKunci: isKaryawan ? 'Bagian' : 'Kelompok',
+    voucher: v,
+    list: [v],
+    holder: holder,
+    active: active ? 1 : 0,
+    total: cleanNum_(v.Nilai),
+    totalActive: active ? cleanNum_(v.Nilai) : 0,
+    perluVoucher: false
+  };
+}
+
 /**
  * Tulis semua baris mutasi baru ke sheet Mutasi eksternal (MyKopinka / HRIS)
  * dalam satu setValues, satu baris mirror SPARTA (setValues), lalu patch
@@ -4161,7 +4211,16 @@ function redeemVoucher(data) {
     _seg = Date.now();
     if (!res.ok) return { ok: false, message: res.message };
 
-    var kodes = (data.kode || []).map(function (k) { return String(k).trim(); }).filter(Boolean);
+    var inputKodes = Array.isArray(data.kode) ? data.kode : [data.kode];
+    var kodes = [];
+    var seenKodes = Object.create(null);
+    inputKodes.forEach(function (k) {
+      var normalized = normalizeKodeVoucher_(k);
+      if (normalized && !seenKodes[normalized]) {
+        seenKodes[normalized] = true;
+        kodes.push(normalized);
+      }
+    });
     if (!kodes.length) return getErrorObj_('Pilih minimal satu voucher untuk diredeem.');
 
     var svHeaders = sheetsApiProbe_()
@@ -4189,19 +4248,26 @@ function redeemVoucher(data) {
     var extRowValues = {};
     var redeemedKodes = [];
     kodes.forEach(function (kode) {
-      var v = null;
+      var matches = [];
       for (var i = 0; i < res.list.length; i++) {
-        if (String(res.list[i].Kode) === kode) { v = res.list[i]; break; }
+        if (normalizeKodeVoucher_(res.list[i].Kode) === kode) matches.push(res.list[i]);
       }
+      if (matches.length > 1) { skipped.push(kode + ' (kode duplikat sumber)'); return; }
+      var v = matches[0];
       if (!v || String(v.Status) !== 'Active') { skipped.push(kode); return; }
-      if (isKaryawan && !nipMatch_(String(v.NIP || ''), String(data.no || ''))) { skipped.push(kode); return; }
+      var requestedNo = String(data.no || '').trim();
+      var ownerNo = String(isKaryawan ? (v.NIP || '') : (v.NoAnggota || '')).trim();
+      var ownerMatch = !requestedNo || !ownerNo || (isKaryawan
+        ? nipMatch_(ownerNo, requestedNo)
+        : ownerNo === requestedNo || ownerNo === requestedNo.replace(/^A/i, '') || requestedNo === ownerNo.replace(/^A/i, ''));
+      if (!ownerMatch) { skipped.push(kode + ' (pemegang tidak cocok)'); return; }
       var row = Number(v.Row) || 0;
       if (row > 0) extRowValues[row] = 'Used';
       redeemedKodes.push(kode);
       var no = isKaryawan ? String(v.NIP || data.no || '') : String(v.NoAnggota || data.no || '');
       redeemed.push({ v: v, kode: kode, no: no });
     });
-    if (!redeemed.length) return getErrorObj_('Tidak ada voucher Active yang bisa diredeem.' + (skipped.length ? ' Diblokir: ' + skipped.join(', ') : ''));
+    if (!redeemed.length) return getErrorObj_('Tidak ada voucher Active yang bisa diredeem.' + (skipped.length ? ' Dilewati: ' + skipped.join(', ') : ''));
     _perf.cekNota = Date.now() - _seg;
     perf_('redeem2 cekPemegang+nota', _seg);
     _seg = Date.now();
