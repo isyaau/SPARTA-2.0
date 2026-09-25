@@ -492,7 +492,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.49</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.50</div>
       </div>
     </div>
   </div>
@@ -527,7 +527,7 @@
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.49</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.50</small>
     </div>
   </aside>
 
@@ -742,7 +742,7 @@
             </div>
             <select id="a-filter" class="form-select form-select-sm w-auto" onchange="filterAnggota()" title="Filter status">
               <option value="">Semua Status</option>
-              <option value="Aktif">Aktif</option>
+              <option value="Aktif" selected>Aktif</option>
               <option value="Nonaktif">Nonaktif</option>
             </select>
             <div class="btn-group btn-group-sm" role="group">
@@ -802,7 +802,7 @@
         <div class="table-responsive">
           <table class="table table-hover table-sm align-middle">
             <thead class="table-light">
-              <tr><th class="small text-uppercase text-muted">Foto</th><th class="small text-uppercase text-muted">NIP</th><th class="small text-uppercase text-muted">Nama Lengkap</th><th class="small text-uppercase text-muted">Jabatan</th><th class="small text-uppercase text-muted">Bagian</th><th class="small text-uppercase text-muted">No WA</th><th class="small text-uppercase text-muted">Aksi</th></tr>
+              <tr><th class="small text-uppercase text-muted">Foto</th><th class="small text-uppercase text-muted">NIP</th><th class="small text-uppercase text-muted">Nama Lengkap</th><th class="small text-uppercase text-muted">Jabatan</th><th class="small text-uppercase text-muted">Bagian</th><th class="small text-uppercase text-muted">No WA</th><th class="small text-uppercase text-muted">Status</th><th class="small text-uppercase text-muted">Aksi</th></tr>
             </thead>
             <tbody id="tabel-karyawan"></tbody>
           </table>
@@ -3522,7 +3522,7 @@
         busy(false);
         if (!r.ok) {
           showToast(r.message || 'Gagal memuat data karyawan.', true);
-          $('tabel-karyawan').innerHTML = '<tr><td colspan="7" class="empty">' + esc(r.message || 'Tidak ada data.') + '</td></tr>';
+          $('tabel-karyawan').innerHTML = '<tr><td colspan="8" class="empty">' + esc(r.message || 'Tidak ada data.') + '</td></tr>';
           renderPager('pager-karyawan', null, 'karyawan');
           return;
         }
@@ -3555,10 +3555,11 @@
     var list = listKaryawanFiltered();
     var r = localPage(list, PAGE.karyawan.page, PAGE.karyawan.size);
     var tbody = $('tabel-karyawan');
-    if (STATE.karyawanAll === null) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Memuat data...</td></tr>'; return; }
-    if (!r.list.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">Tidak ada data.</td></tr>'; renderPager('pager-karyawan', r, 'karyawan'); return; }
+    if (STATE.karyawanAll === null) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Memuat data...</td></tr>'; return; }
+    if (!r.list.length) { tbody.innerHTML = '<tr><td colspan="8" class="empty">Tidak ada data.</td></tr>'; renderPager('pager-karyawan', r, 'karyawan'); return; }
     tbody.innerHTML = r.list.map(function (k) {
       var showNIP = k.NIPBaru || k.NIPLama;
+      var status = String(k.AktifNonAktif || '').toLowerCase().indexOf('non') >= 0 ? 'Nonaktif' : 'Aktif';
       return '<tr>' +
         '<td>' + avatarHtml(k.Avatar, k.NamaLengkap, 36) + '</td>' +
         '<td><b>' + esc(showNIP || '-') + '</b></td>' +
@@ -3566,6 +3567,7 @@
         '<td>' + esc(k.Jabatan) + '</td>' +
         '<td>' + esc(k.Bagian) + '</td>' +
         '<td>' + esc(k.NoWA) + '</td>' +
+        '<td>' + badge(status) + '</td>' +
         '<td class="text-nowrap"><div class="d-flex gap-1">' +
         '<button class="btn btn-sm btn-outline-secondary" onclick="detailKaryawan(\'' + esc(k.NIPBaru || k.NIPLama) + '\')">Detail</button>' +
         waContactButton_(k.NoWA, k.NamaLengkap) +
