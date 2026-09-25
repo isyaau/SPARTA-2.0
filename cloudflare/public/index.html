@@ -492,7 +492,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.46</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.47</div>
       </div>
     </div>
   </div>
@@ -527,7 +527,7 @@
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.46</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.47</small>
     </div>
   </aside>
 
@@ -2619,6 +2619,7 @@
     mutasiAll: null,
     mutasiKey: '',
     mutasiSub: 'anggota',
+    mutasiRequestId: 0,
     piutangkAll: null,
     piutangkKey: '',
     laporanAll: null,
@@ -4074,6 +4075,8 @@
     var kary = STATE.mutasiSub === 'karyawan';
     $('m-subtab-anggota').classList.toggle('active', !kary);
     $('m-subtab-karyawan').classList.toggle('active', kary);
+    var c = $('m-cari');
+    if (c) c.value = '';
     var f = $('m-filter');
     if (f) f.value = 'semua';
     var b = $('m-bulan');
@@ -4143,19 +4146,43 @@
     var bulan = $('m-bulan').value || '';
     var key = kind + '|' + cari.toLowerCase() + '|' + kelompok + '|' + bulan;
     if (!force && STATE.mutasiAll && STATE.mutasiKey === key) { renderMutasi(); return; }
+    var requestId = (STATE.mutasiRequestId || 0) + 1;
+    STATE.mutasiRequestId = requestId;
     busy(true, 'Memuat mutasi voucher...');
     google.script.run
       .withSuccessHandler(function (r) {
+        if (requestId !== STATE.mutasiRequestId) return;
         busy(false);
-        if (!r.ok) { showToast(r.message || 'Gagal memuat mutasi voucher.', true); return; }
+        if (!r.ok) {
+          var kosong = /kosong|belum ada data/i.test(String(r.message || ''));
+          renderMutasiEmpty(kosong ? (kind === 'karyawan' ? 'Belum ada data mutasi karyawan.' : 'Belum ada data mutasi anggota.') : (r.message || 'Data mutasi belum tersedia.'));
+          fillMutasiKelompok([]);
+          fillTokoSelect('m-toko', []);
+          showToast(r.message || 'Gagal memuat mutasi voucher.', true);
+          return;
+        }
         fillMutasiKelompok(r.kelompok);
         STATE.mutasiAll = r.list;
         STATE.mutasiKey = key;
         fillTokoSelect('m-toko', STATE.mutasiAll);
         renderMutasi();
       })
-      .withFailureHandler(function (e) { busy(false); showToast('Error mutasi: ' + e.message, true); })
+      .withFailureHandler(function (e) {
+        if (requestId !== STATE.mutasiRequestId) return;
+        busy(false);
+        renderMutasiEmpty('Data mutasi belum tersedia. Silakan coba lagi.');
+        showToast('Error mutasi: ' + e.message, true);
+      })
       .getMutasiBundle({ kind: kind, token: SESSION.token, search: cari, kelompok: kelompok, bulan: bulan, page: PAGE.mutasi.page, pageSize: PAGE.mutasi.size, full: true });
+  }
+
+  function renderMutasiEmpty(message) {
+    STATE.mutasiAll = [];
+    PAGE.mutasi.page = 1;
+    PAGE.mutasi.pages = 1;
+    $('m-total').textContent = ' - 0 data';
+    $('tabel-mutasi').innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4"><i class="bi bi-inbox d-block fs-3 mb-2"></i>' + esc(message || 'Belum ada data mutasi.') + '</td></tr>';
+    $('pager-mutasi').innerHTML = '';
   }
 
   function renderMutasi() {
@@ -4166,7 +4193,9 @@
     STATE.mutasiPage = r;
     PAGE.mutasi.pages = r.pages;
     var tbody = $('tabel-mutasi');
-    if (!r || !r.list.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">Tidak ada data.</td></tr>'; }
+    if (!r || !r.list.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-4"><i class="bi bi-inbox d-block fs-3 mb-2"></i>' + (kary ? 'Belum ada data mutasi karyawan.' : 'Belum ada data mutasi anggota.') + '</td></tr>';
+    }
     else {
       tbody.innerHTML = r.list.map(function (m) {
         var ident = kary ? m.NIP : m.NoAnggota;

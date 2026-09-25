@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.46';
+var APP_VERSION = '2.0.47';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -1553,13 +1553,14 @@ function syncSatu_(kind, table, conf) {
   }
   try {
     var ss = SpreadsheetApp.openById(conf.spreadsheetId);
-    var ext = ss.getSheetByName(conf.sheetName) || ss.getSheets()[0];
+    var ext = ss.getSheetByName(conf.sheetName);
     if (!ext) {
       return { ok: false, kind: kind, table: table, rows: 0, message: 'Sheet "' + conf.sheetName + '" tidak ditemukan di spreadsheet sumber.' };
     }
     var lr = ext.getLastRow();
     if (lr < 1) {
       mirror.clear();
+      clearMirrorCache_(kind, table);
       return { ok: true, kind: kind, table: table, rows: 0, message: 'Sumber kosong.' };
     }
     var lc = ext.getLastColumn();
@@ -1577,6 +1578,7 @@ function syncSatu_(kind, table, conf) {
     var all = [head].concat(data);
     mirror.getRange(1, 1, all.length, lc).setValues(all);
     mirror.setFrozenRows(1);
+    clearMirrorCache_(kind, table);
     return { ok: true, kind: kind, table: table, rows: data.length, message: data.length + ' baris disalin dari ' + conf.sheetName + ' ke "' + sheetName + '".' };
   } catch (e) {
     return { ok: false, kind: kind, table: table, rows: 0, message: String(e.message || e) };
