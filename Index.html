@@ -247,6 +247,74 @@
     .tabbar .tab-btn:hover:not(.active) { color: var(--primary-dark); background: #fff; }
     .tabbar .tab-btn.active { background: #fff; color: var(--primary-dark); border-color: var(--bs-border-color); box-shadow: 0 2px 6px rgba(16,24,40,.10); font-weight: 700; }
     .tabbar .tab-btn .bi { font-size: 1rem; }
+    .transaction-page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+    .transaction-page-head h4 { margin: 0; color: var(--primary-dark); font-size: 1.2rem; font-weight: 800; letter-spacing: -.02em; }
+    .transaction-page-head p { margin: .25rem 0 0; color: var(--muted); font-size: .82rem; }
+    .transaction-page-chip { display: inline-flex; align-items: center; gap: .4rem; flex-shrink: 0; padding: .42rem .75rem; border: 1px solid #fecaca; border-radius: 999px; background: #fff7f7; color: var(--primary-dark); font-size: .74rem; font-weight: 700; }
+    .transaction-layout { display: grid; grid-template-columns: minmax(230px, 270px) minmax(0, 1fr); gap: 1rem; align-items: start; }
+    .transaction-menu { position: sticky; top: 1rem; padding: .55rem; border: 1px solid var(--bs-border-color); border-radius: 1rem; background: #fff; box-shadow: 0 8px 24px rgba(15,23,42,.06); }
+    .transaction-menu-head { padding: .65rem .7rem .75rem; border-bottom: 1px solid var(--bs-border-color); margin-bottom: .45rem; }
+    .transaction-menu-head strong { display: block; color: #0f172a; font-size: .82rem; font-weight: 800; }
+    .transaction-menu-head span { display: block; margin-top: .12rem; color: var(--muted); font-size: .7rem; }
+    .transaction-menu-btn { display: grid; grid-template-columns: 38px minmax(0, 1fr) 16px; align-items: center; gap: .65rem; width: 100%; padding: .7rem; margin-bottom: .35rem; border: 1px solid transparent; border-radius: .75rem; background: transparent; color: var(--muted); text-align: left; transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, color .16s ease; }
+    .transaction-menu-btn:last-child { margin-bottom: 0; }
+    .transaction-menu-btn:hover { background: #f8fafc; color: #334155; }
+    .transaction-menu-btn.active { border-color: #fecaca; background: #fff7f7; color: var(--primary-dark); box-shadow: 0 4px 12px rgba(220,38,38,.08); }
+    .transaction-menu-icon { width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border-radius: .65rem; background: #f1f5f9; color: #64748b; font-size: 1rem; }
+    .transaction-menu-btn.active .transaction-menu-icon { background: var(--primary); color: #fff; }
+    .transaction-menu-copy { min-width: 0; }
+    .transaction-menu-copy strong { display: block; font-size: .82rem; font-weight: 800; }
+    .transaction-menu-copy small { display: block; margin-top: .12rem; color: var(--muted); font-size: .68rem; line-height: 1.35; }
+    .transaction-menu-btn > .bi { font-size: .75rem; }
+    .transaction-workspace { min-width: 0; }
+    .transaction-panel { overflow: visible; border: 1px solid var(--bs-border-color); border-radius: 1rem; background: #fff; box-shadow: 0 8px 24px rgba(15,23,42,.05); }
+    .transaction-panel-head { display: flex; align-items: center; gap: .85rem; padding: 1rem 1.15rem; border-bottom: 1px solid var(--bs-border-color); background: linear-gradient(135deg, #fff 0%, #fff8f8 100%); border-radius: 1rem 1rem 0 0; }
+    .transaction-panel-icon { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: .75rem; background: var(--primary); color: #fff; font-size: 1.2rem; box-shadow: 0 6px 14px rgba(220,38,38,.18); }
+    .transaction-panel-head h5 { margin: 0; color: #0f172a; font-size: 1rem; font-weight: 800; }
+    .transaction-panel-head p { margin: .18rem 0 0; color: var(--muted); font-size: .75rem; }
+    .transaction-panel-body { padding: 1rem; }
+    .transaction-step { padding: 1rem; border: 1px solid var(--bs-border-color); border-radius: .85rem; background: #fff; }
+    .transaction-step + .transaction-step { margin-top: .85rem; }
+    .transaction-step-head { display: flex; align-items: flex-start; gap: .65rem; margin-bottom: .9rem; }
+    .transaction-step-number { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 50%; background: var(--primary); color: #fff; font-size: .72rem; font-weight: 800; }
+    .transaction-step-title { min-width: 0; }
+    .transaction-step-title strong { display: block; color: #1e293b; font-size: .86rem; font-weight: 800; }
+    .transaction-step-title span { display: block; margin-top: .12rem; color: var(--muted); font-size: .72rem; }
+    .transaction-type-label { display: block; margin-bottom: .4rem; color: #334155; font-size: .74rem; font-weight: 700; }
+    .transaction-type-switch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; padding: .3rem; border: 1px solid var(--bs-border-color); border-radius: .75rem; background: #f8fafc; }
+    .transaction-type-switch .tab-btn { min-width: 0; padding: .55rem .5rem; }
+    .transaction-field-label { display: block; margin-bottom: .4rem; color: #334155; font-size: .74rem; font-weight: 700; }
+    .transaction-hint { margin-top: .35rem; color: var(--muted); font-size: .7rem; line-height: 1.4; }
+    .transaction-result { margin-top: .85rem; padding: 1rem; border: 1px solid var(--bs-border-color); border-radius: .85rem; background: #fcfcfd; }
+    .transaction-result-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-bottom: .65rem; }
+    .transaction-result-head strong { color: #1e293b; font-size: .86rem; font-weight: 800; }
+    .transaction-result-head span { color: var(--muted); font-size: .72rem; }
+    .transaction-info { margin: 0 0 .75rem; padding: .65rem .75rem; border: 1px solid #fecaca; border-radius: .65rem; background: #fff7f7; font-size: .74rem; }
+    .transaction-kartu { margin-bottom: .75rem; }
+    .transaction-empty { min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .35rem; padding: 1.25rem; color: var(--muted); text-align: center; }
+    .transaction-empty-icon { width: 46px; height: 46px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: .2rem; border-radius: 50%; background: #f1f5f9; color: #94a3b8; font-size: 1.2rem; }
+    .transaction-empty strong { color: #475569; font-size: .84rem; }
+    .transaction-empty span:last-child { max-width: 520px; font-size: .75rem; line-height: 1.45; }
+    .transaction-optional { margin-top: .85rem; padding: .9rem; border: 1px dashed #fca5a5; border-radius: .8rem; background: #fffafa; }
+    .transaction-optional-head { display: flex; align-items: center; gap: .45rem; margin-bottom: .75rem; color: var(--primary-dark); font-size: .8rem; font-weight: 800; }
+    .transaction-actionbar { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: .85rem; padding: .85rem 1rem; border: 1px solid var(--bs-border-color); border-radius: .8rem; background: #f8fafc; }
+    .transaction-actionbar .rv-sum { margin-left: auto; color: var(--primary-dark); font-weight: 800; }
+    .transaction-savebar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--bs-border-color); }
+    .transaction-savebar .btn { min-width: 190px; }
+    @media (max-width: 1199.98px) {
+      .transaction-layout { grid-template-columns: 1fr; }
+      .transaction-menu { position: static; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; }
+      .transaction-menu-head { grid-column: 1 / -1; }
+      .transaction-menu-btn { margin-bottom: 0; }
+    }
+    @media (max-width: 575.98px) {
+      .transaction-page-head { align-items: flex-start; flex-direction: column; }
+      .transaction-menu { grid-template-columns: 1fr; }
+      .transaction-panel-body, .transaction-result, .transaction-step { padding: .8rem; }
+      .transaction-actionbar { align-items: flex-start; flex-direction: column; }
+      .transaction-actionbar .rv-sum { margin-left: 0; }
+      .transaction-savebar .btn { width: 100%; }
+    }
 
     .app-shell { display: flex; min-height: 100vh; }
     .sidebar {
@@ -417,7 +485,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.41</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.42</div>
       </div>
     </div>
   </div>
@@ -452,7 +520,7 @@
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.41</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.42</small>
     </div>
   </aside>
 
@@ -869,139 +937,230 @@
 
   <!-- ===================== REDEEM ===================== -->
   <section id="page-redeem" class="page">
-    <div class="tabbar" role="tablist">
-      <button class="tab-btn active" id="rm-tab-voucher" onclick="redeemTab('voucher')"><i class="bi bi-ticket-perforated"></i>Redeem Voucher</button>
-      <button class="tab-btn" id="rm-tab-piutang" onclick="redeemTab('piutang')"><i class="bi bi-journal-plus"></i>Catat Kredit</button>
+    <div class="transaction-page-head">
+      <div>
+        <h4>Pusat Transaksi</h4>
+        <p>Kelola redeem voucher dan pencatatan kredit dalam satu alur yang rapi.</p>
+      </div>
+      <span class="transaction-page-chip"><i class="bi bi-lightning-charge-fill"></i> Transaksi Terintegrasi</span>
     </div>
 
-    <div id="rm-panel-voucher">
-      <div class="card mb-4">
-        <div class="card-body">
-          <h6 class="fw-bold mb-3">Redeem Voucher</h6>
-          <div class="row g-3 mb-3">
-            <div class="col-md-3">
-              <label class="form-label small text-muted">Jenis Pemegang</label>
-              <div class="tabbar mb-0" role="tablist">
-                <button type="button" class="tab-btn active" id="rv-type-a" onclick="rvType('anggota')"><i class="bi bi-people"></i>Anggota</button>
-                <button type="button" class="tab-btn" id="rv-type-k" onclick="rvType('karyawan')"><i class="bi bi-briefcase"></i>Karyawan</button>
+    <div class="transaction-layout">
+      <aside class="transaction-menu" role="tablist" aria-label="Pilih jenis transaksi">
+        <div class="transaction-menu-head">
+          <strong>Jenis Transaksi</strong>
+          <span>Pilih alur yang ingin dijalankan.</span>
+        </div>
+        <button type="button" class="transaction-menu-btn active" id="rm-tab-voucher" onclick="redeemTab('voucher')" role="tab" aria-selected="true" aria-controls="rm-panel-voucher">
+          <span class="transaction-menu-icon"><i class="bi bi-ticket-perforated"></i></span>
+          <span class="transaction-menu-copy"><strong>Redeem Voucher</strong><small>Cari pemegang melalui nama, identitas, atau barcode.</small></span>
+          <i class="bi bi-chevron-right"></i>
+        </button>
+        <button type="button" class="transaction-menu-btn" id="rm-tab-piutang" onclick="redeemTab('piutang')" role="tab" aria-selected="false" aria-controls="rm-panel-piutang">
+          <span class="transaction-menu-icon"><i class="bi bi-journal-plus"></i></span>
+          <span class="transaction-menu-copy"><strong>Catat Kredit</strong><small>Buat kredit baru untuk anggota atau karyawan.</small></span>
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      </aside>
+
+      <div class="transaction-workspace">
+        <div id="rm-panel-voucher" role="tabpanel" aria-labelledby="rm-tab-voucher">
+          <div class="transaction-panel">
+            <div class="transaction-panel-head">
+              <span class="transaction-panel-icon"><i class="bi bi-ticket-perforated"></i></span>
+              <div>
+                <h5>Redeem Voucher</h5>
+                <p>Temukan pemegang, pindai voucher, lalu konfirmasi redemption.</p>
               </div>
             </div>
-            <div class="col-md-9">
-              <div class="row g-3">
-                <div class="col-md-5">
-                  <label class="form-label small text-muted" for="rv-no" id="rv-no-label">No Anggota</label>
-                  <div class="input-group">
-                    <input id="rv-no" class="form-control" placeholder="contoh: A0001">
-                    <button class="btn btn-primary" onclick="cariVoucher()"><i class="bi bi-patch-check"></i>Verifikasi</button>
+            <div class="transaction-panel-body">
+              <section class="transaction-step">
+                <div class="transaction-step-head">
+                  <span class="transaction-step-number">1</span>
+                  <div class="transaction-step-title"><strong>Tentukan Pemegang</strong><span>Cari berdasarkan nama terlebih dahulu atau gunakan nomor identitas.</span></div>
+                </div>
+                <div class="row g-3 align-items-start">
+                  <div class="col-lg-3">
+                    <span class="transaction-type-label">Jenis Pemegang</span>
+                    <div class="transaction-type-switch" role="group" aria-label="Jenis pemegang voucher">
+                      <button type="button" class="tab-btn active" id="rv-type-a" onclick="rvType('anggota')" aria-pressed="true"><i class="bi bi-people"></i>Anggota</button>
+                      <button type="button" class="tab-btn" id="rv-type-k" onclick="rvType('karyawan')" aria-pressed="false"><i class="bi bi-briefcase"></i>Karyawan</button>
+                    </div>
+                  </div>
+                  <div class="col-lg-6">
+                    <label class="transaction-field-label" for="rv-name" id="rv-name-label">Cari Nama Anggota</label>
+                    <div class="holder-picker" id="rv-name-wrap">
+                      <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="bi bi-search"></i></span>
+                        <input id="rv-name" class="form-control border-start-0" placeholder="Ketik nama anggota, lalu pilih hasil" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="rv-name-results" oninput="searchRvName()" onfocus="searchRvName()" onkeydown="rvNameKey(event)">
+                      </div>
+                      <div id="rv-name-results" class="holder-picker-menu" role="listbox" hidden></div>
+                    </div>
+                    <div class="transaction-hint" id="rv-name-help">Hasil pencarian menampilkan nama, No Anggota, dan kelompok.</div>
+                  </div>
+                  <div class="col-lg-3">
+                    <label class="transaction-field-label" for="rv-no" id="rv-no-label">No Anggota</label>
+                    <div class="input-group">
+                      <input id="rv-no" class="form-control" placeholder="A0001" aria-label="No Anggota">
+                      <button type="button" class="btn btn-primary px-3" id="rv-no-verify" onclick="cariVoucher()" title="Verifikasi No Anggota" aria-label="Verifikasi No Anggota"><i class="bi bi-patch-check"></i></button>
+                    </div>
+                    <div class="transaction-hint">Atau verifikasi langsung.</div>
                   </div>
                 </div>
-                <div class="col-md-7">
-                  <label class="form-label small text-muted" for="rv-name" id="rv-name-label">Cari Nama Anggota</label>
-                  <div class="holder-picker" id="rv-name-wrap">
-                    <input id="rv-name" class="form-control" placeholder="Ketik nama, lalu pilih hasil" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="rv-name-results" oninput="searchRvName()" onfocus="searchRvName()" onkeydown="rvNameKey(event)">
-                    <div id="rv-name-results" class="holder-picker-menu" role="listbox" hidden></div>
-                  </div>
-                  <div class="form-text">Pilih nama untuk mengisi identitas dan menampilkan vouchernya.</div>
+              </section>
+
+              <section class="transaction-step">
+                <div class="transaction-step-head">
+                  <span class="transaction-step-number">2</span>
+                  <div class="transaction-step-title"><strong>Voucher dan Nota</strong><span>Pindai satu kode voucher atau isi nota transaksi.</span></div>
                 </div>
-              </div>
-            </div>
-          </div>
-          <div class="row g-3 align-items-end">
-            <div class="col-md-7">
-              <label class="form-label small text-muted" for="rv-barcode">Pindai Barcode Voucher</label>
-              <div class="input-group">
-                <span class="input-group-text bg-light text-muted"><i class="bi bi-upc-scan"></i></span>
-                <input id="rv-barcode" class="form-control" placeholder="Scan Kode Voucher lalu Enter" autocomplete="off" inputmode="numeric" onkeydown="rvBarcodeKey(event)">
-                <button type="button" class="btn btn-outline-primary" onclick="cariVoucherBarcode()">Cari Barcode</button>
-              </div>
-              <div class="form-text">Pindai satu kode voucher untuk mencari dan memilihnya otomatis.</div>
-            </div>
-            <div class="col-md-5">
-              <label class="form-label small text-muted" for="rv-nota">4 Digit Akhir Nota *</label>
-              <div class="input-group">
-                <span class="input-group-text bg-light text-muted" id="rv-nota-prefix">-</span>
-                <input id="rv-nota" class="form-control" maxlength="4" placeholder="0041" oninput="refreshNotaPreview()">
-              </div>
-            </div>
-          </div>
-          <div id="rv-info" class="stat-row mb-3"><span>Pindai barcode untuk satu voucher, atau ketik No Anggota / NIP lalu tekan Verifikasi.</span><span></span></div>
-          <div id="rv-kartu"></div>
-          <div id="rv-tabel" class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
-            <div class="col-12"><div class="empty">Pindai barcode atau ketik No Anggota / NIP lalu tekan Verifikasi.</div></div>
-          </div>
-          <div class="d-flex flex-wrap align-items-center gap-3 mt-3 pt-3 border-top">
-            <button class="btn btn-success" id="rv-redeem-btn" onclick="redeemVoucherAct()" disabled><i class="bi bi-check2-circle"></i>Redeem Terpilih</button>
-            <label class="form-check-label small"><input type="checkbox" class="form-check-input me-1" id="rv-checkall" onchange="rvCheckAll(this.checked)">Pilih semua (aktif)</label>
-            <label class="form-check-label small"><input type="checkbox" class="form-check-input me-1" id="rv-catat" onchange="rvCatat(this.checked)">Sekalian catat kredit baru (opsional)</label>
-            <span class="small text-muted" id="rv-sum">0 voucher terpilih</span>
-          </div>
-          <div id="rv-catat-form" style="display:none" class="row g-3 mt-1">
-            <div class="col-md-3">
-              <label class="form-label small text-muted" for="rv-cjml">Nominal Kredit (Rp)</label>
-              <input id="rv-cjml" class="form-control" type="number" min="0" placeholder="0">
-            </div>
-            <div class="col-md-5">
-              <label class="form-label small text-muted">Foto Bukti (opsional)</label>
-              <div class="d-flex align-items-center gap-2">
-                <input class="form-control" type="file" accept="image/*" id="rv-bukti" onchange="rvBacaBukti(this)">
-                <button class="btn btn-outline-danger btn-sm" type="button" onclick="rvHapusBukti()" title="Hapus foto" style="display:none" id="rv-bukti-hapus"><i class="bi bi-x-lg"></i></button>
-              </div>
-              <img id="rv-bukti-prev" class="mt-1 rounded border" width="120" alt="Pratinjau bukti" style="display:none">
-            </div>
-            <div class="col-md-4 d-flex align-items-end">
-              <div class="small text-muted mb-2"><i class="bi bi-info-circle"></i> No nota memakai nota redeem di atas. Nominal wajib diisi untuk membuat kredit.</div>
+                <div class="row g-3 align-items-start">
+                  <div class="col-lg-8">
+                    <label class="transaction-field-label" for="rv-barcode">Pindai Barcode Voucher</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light text-muted"><i class="bi bi-upc-scan"></i></span>
+                      <input id="rv-barcode" class="form-control" placeholder="Scan kode voucher lalu Enter" autocomplete="off" inputmode="numeric" onkeydown="rvBarcodeKey(event)">
+                      <button type="button" class="btn btn-outline-primary" onclick="cariVoucherBarcode()">Cari Barcode</button>
+                    </div>
+                    <div class="transaction-hint">Voucher yang dipindai akan ditemukan dan dipilih otomatis.</div>
+                  </div>
+                  <div class="col-lg-4">
+                    <label class="transaction-field-label" for="rv-nota">4 Digit Akhir Nota *</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light text-muted" id="rv-nota-prefix">-</span>
+                      <input id="rv-nota" class="form-control" maxlength="4" placeholder="0041" inputmode="numeric" oninput="refreshNotaPreview()">
+                    </div>
+                    <div class="transaction-hint">Digunakan pada transaksi redemption.</div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="transaction-result">
+                <div class="transaction-result-head">
+                  <strong>3. Pilih Voucher</strong>
+                  <span>Voucher aktif siap diredeem</span>
+                </div>
+                <div id="rv-info" class="transaction-info"><span>Pindai barcode untuk satu voucher, atau cari pemegang berdasarkan nama.</span><span></span></div>
+                <div id="rv-kartu" class="transaction-kartu"></div>
+                <div id="rv-tabel" class="row row-cols-1 row-cols-md-2 row-cols-xxl-3 g-3">
+                  <div class="col-12">
+                    <div class="transaction-empty">
+                      <span class="transaction-empty-icon"><i class="bi bi-ticket-perforated"></i></span>
+                      <strong>Belum ada voucher untuk diredeem</strong>
+                      <span>Cari nama pemegang atau pindai barcode voucher untuk menampilkan pilihan.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="rv-catat-form" style="display:none" class="transaction-optional">
+                  <div class="transaction-optional-head"><i class="bi bi-journal-plus"></i> Tambahkan kredit baru setelah redemption</div>
+                  <div class="row g-3 align-items-start">
+                    <div class="col-md-4">
+                      <label class="transaction-field-label" for="rv-cjml">Nominal Kredit (Rp) *</label>
+                      <input id="rv-cjml" class="form-control" type="number" min="0" placeholder="0">
+                    </div>
+                    <div class="col-md-8">
+                      <label class="transaction-field-label" for="rv-bukti">Foto Bukti (opsional)</label>
+                      <div class="d-flex align-items-center gap-2">
+                        <input class="form-control" type="file" accept="image/*" id="rv-bukti" onchange="rvBacaBukti(this)">
+                        <button class="btn btn-outline-danger btn-sm" type="button" onclick="rvHapusBukti()" title="Hapus foto" style="display:none" id="rv-bukti-hapus"><i class="bi bi-x-lg"></i></button>
+                      </div>
+                      <img id="rv-bukti-prev" class="mt-1 rounded border" width="120" alt="Pratinjau bukti" style="display:none;height:auto;max-width:120px">
+                    </div>
+                  </div>
+                  <div class="transaction-hint mt-2"><i class="bi bi-info-circle"></i> No nota memakai nota redeem di atas. Nominal wajib diisi untuk membuat kredit.</div>
+                </div>
+
+                <div class="transaction-actionbar">
+                  <button class="btn btn-success px-4" id="rv-redeem-btn" onclick="redeemVoucherAct()" disabled><i class="bi bi-check2-circle me-1"></i>Redeem Terpilih</button>
+                  <label class="form-check-label small"><input type="checkbox" class="form-check-input me-1" id="rv-checkall" onchange="rvCheckAll(this.checked)">Pilih semua (aktif)</label>
+                  <label class="form-check-label small"><input type="checkbox" class="form-check-input me-1" id="rv-catat" onchange="rvCatat(this.checked)">Sekalian catat kredit baru (opsional)</label>
+                  <span class="small text-muted rv-sum" id="rv-sum">0 voucher terpilih</span>
+                </div>
+              </section>
             </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <div id="rm-panel-piutang" style="display:none">
-      <div class="card mb-4">
-        <div class="card-body">
-          <h6 class="fw-bold mb-3">Catat Kredit</h6>
-          <div class="row g-3">
-            <div class="col-md-3">
-              <label class="form-label small text-muted">Jenis Pemegang</label>
-              <div class="tabbar mb-0" role="tablist">
-                <button type="button" class="tab-btn active" id="rp-type-a" onclick="rpType('anggota')"><i class="bi bi-people"></i>Anggota</button>
-                <button type="button" class="tab-btn" id="rp-type-k" onclick="rpType('karyawan')"><i class="bi bi-briefcase"></i>Karyawan</button>
+        <div id="rm-panel-piutang" role="tabpanel" aria-labelledby="rm-tab-piutang" style="display:none">
+          <div class="transaction-panel">
+            <div class="transaction-panel-head">
+              <span class="transaction-panel-icon"><i class="bi bi-journal-plus"></i></span>
+              <div>
+                <h5>Catat Kredit</h5>
+                <p>Tambahkan saldo kredit baru dengan identitas dan bukti transaksi.</p>
               </div>
             </div>
-            <div class="col-md-3">
-              <label class="form-label small text-muted" for="rp-no" id="rp-no-label">No Anggota *</label>
-              <div class="input-group">
-                <input id="rp-no" class="form-control" placeholder="contoh: A0001">
-                <button class="btn btn-primary" onclick="verifikasiPemegangRp()"><i class="bi bi-patch-check"></i>Verifikasi</button>
+            <div class="transaction-panel-body">
+              <section class="transaction-step">
+                <div class="transaction-step-head">
+                  <span class="transaction-step-number">1</span>
+                  <div class="transaction-step-title"><strong>Verifikasi Pemegang</strong><span>Pastikan pemilik kredit sudah sesuai sebelum disimpan.</span></div>
+                </div>
+                <div class="row g-3 align-items-start">
+                  <div class="col-lg-4">
+                    <span class="transaction-type-label">Jenis Pemegang</span>
+                    <div class="transaction-type-switch" role="group" aria-label="Jenis pemegang kredit">
+                      <button type="button" class="tab-btn active" id="rp-type-a" onclick="rpType('anggota')" aria-pressed="true"><i class="bi bi-people"></i>Anggota</button>
+                      <button type="button" class="tab-btn" id="rp-type-k" onclick="rpType('karyawan')" aria-pressed="false"><i class="bi bi-briefcase"></i>Karyawan</button>
+                    </div>
+                  </div>
+                  <div class="col-lg-8">
+                    <label class="transaction-field-label" for="rp-no" id="rp-no-label">No Anggota *</label>
+                    <div class="input-group">
+                      <input id="rp-no" class="form-control" placeholder="contoh: A0001">
+                      <button type="button" class="btn btn-primary px-3" onclick="verifikasiPemegangRp()"><i class="bi bi-patch-check me-1"></i>Verifikasi</button>
+                    </div>
+                  </div>
+                  <div class="col-12">
+                    <div id="rp-kartu" class="mt-1"></div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="transaction-step">
+                <div class="transaction-step-head">
+                  <span class="transaction-step-number">2</span>
+                  <div class="transaction-step-title"><strong>Detail Kredit</strong><span>Masukkan nota dan nominal kredit yang akan ditambahkan.</span></div>
+                </div>
+                <div class="row g-3 align-items-start">
+                  <div class="col-md-6">
+                    <label class="transaction-field-label" for="rp-nota">4 Digit Akhir Nota *</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light text-muted" id="rp-nota-prefix">-</span>
+                      <input id="rp-nota" class="form-control" maxlength="4" placeholder="0001" inputmode="numeric" oninput="refreshRpNotaPreview()">
+                    </div>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="transaction-field-label" for="rp-jumlah">Nominal (Rp) *</label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light text-muted">Rp</span>
+                      <input id="rp-jumlah" class="form-control" type="number" min="0" placeholder="0" inputmode="numeric">
+                    </div>
+                  </div>
+                </div>
+                <div class="transaction-hint mt-2"><i class="bi bi-info-circle"></i> 4 digit akhir nota wajib diisi untuk anggota maupun karyawan.</div>
+              </section>
+
+              <section class="transaction-step">
+                <div class="transaction-step-head">
+                  <span class="transaction-step-number">3</span>
+                  <div class="transaction-step-title"><strong>Bukti Transaksi</strong><span>Lampirkan foto bila diperlukan untuk keperluan audit.</span></div>
+                </div>
+                <label class="transaction-field-label" for="rp-bukti">Foto Bukti (opsional)</label>
+                <div class="d-flex align-items-center gap-2">
+                  <input class="form-control" style="max-width:420px" type="file" accept="image/*" id="rp-bukti" onchange="rpBacaBukti(this)">
+                  <button class="btn btn-outline-danger btn-sm" type="button" onclick="rpHapusBukti()" title="Hapus foto" style="display:none" id="rp-bukti-hapus"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <img id="rp-bukti-prev" class="mt-2 rounded border" width="120" alt="Pratinjau bukti" style="display:none;height:auto;max-width:120px">
+              </section>
+
+              <div class="transaction-savebar">
+                <div class="transaction-hint"><i class="bi bi-shield-check"></i> Data akan disimpan ke sumber transaksi yang sedang aktif.</div>
+                <button class="btn btn-success px-4" onclick="simpanPiutang()"><i class="bi bi-journal-plus me-1"></i>Simpan Kredit</button>
               </div>
-            </div>
-            <div class="col-md-12">
-              <div id="rp-kartu" class="mt-1"></div>
-            </div>
-            <div class="col-md-3">
-              <label class="form-label small text-muted" for="rp-nota">4 Digit Akhir Nota *</label>
-              <div class="input-group">
-                <span class="input-group-text bg-light text-muted" id="rp-nota-prefix">-</span>
-                <input id="rp-nota" class="form-control" maxlength="4" placeholder="0001" oninput="refreshRpNotaPreview()">
-              </div>
-            </div>
-            <div class="col-md-2">
-              <label class="form-label small text-muted" for="rp-jumlah">Nominal (Rp) *</label>
-              <input id="rp-jumlah" class="form-control" type="number" min="0" placeholder="0">
-            </div>
-            <div class="col-md-2 d-flex align-items-end">
-              <button class="btn btn-success w-100" onclick="simpanPiutang()"><i class="bi bi-journal-plus"></i>Simpan Kredit</button>
-            </div>
-            <div class="col-12">
-              <label class="form-label small text-muted">Foto Bukti (opsional)</label>
-              <div class="d-flex align-items-center gap-2">
-                <input class="form-control" style="max-width:320px" type="file" accept="image/*" id="rp-bukti" onchange="rpBacaBukti(this)">
-                <button class="btn btn-outline-danger btn-sm" type="button" onclick="rpHapusBukti()" title="Hapus foto" style="display:none" id="rp-bukti-hapus"><i class="bi bi-x-lg"></i></button>
-              </div>
-              <img id="rp-bukti-prev" class="mt-1 rounded border" width="120" alt="Pratinjau bukti" style="display:none">
             </div>
           </div>
-          <div class="small text-muted mt-2"><i class="bi bi-info-circle"></i> 4 digit akhir nota wajib diisi untuk Anggota maupun Karyawan.</div>
         </div>
       </div>
     </div>
@@ -4056,8 +4215,10 @@
 
   function redeemTab(name) {
     ['voucher', 'piutang'].forEach(function (n) {
-      $('rm-tab-' + n).classList.toggle('active', n === name);
-      $('rm-panel-' + n).style.display = n === name ? '' : 'none';
+      var active = n === name;
+      $('rm-tab-' + n).classList.toggle('active', active);
+      $('rm-tab-' + n).setAttribute('aria-selected', active ? 'true' : 'false');
+      $('rm-panel-' + n).style.display = active ? '' : 'none';
     });
     if (name === 'voucher') {
       setTimeout(function () {
@@ -4072,10 +4233,18 @@
     var kary = kind === 'karyawan';
     $('rv-type-a').classList.toggle('active', !kary);
     $('rv-type-k').classList.toggle('active', kary);
+    $('rv-type-a').setAttribute('aria-pressed', kary ? 'false' : 'true');
+    $('rv-type-k').setAttribute('aria-pressed', kary ? 'true' : 'false');
     $('rv-no-label').textContent = kary ? 'NIP' : 'No Anggota';
+    $('rv-no').setAttribute('aria-label', kary ? 'NIP' : 'No Anggota');
+    $('rv-no-verify').setAttribute('aria-label', 'Verifikasi ' + (kary ? 'NIP' : 'No Anggota'));
+    $('rv-no-verify').title = 'Verifikasi ' + (kary ? 'NIP' : 'No Anggota');
     $('rv-no').placeholder = kary ? 'contoh: 11111002' : 'contoh: A0001';
     $('rv-name-label').textContent = kary ? 'Cari Nama Karyawan' : 'Cari Nama Anggota';
-    $('rv-name').placeholder = kary ? 'Ketik nama karyawan' : 'Ketik nama anggota';
+    $('rv-name').placeholder = kary ? 'Ketik nama karyawan, lalu pilih hasil' : 'Ketik nama anggota, lalu pilih hasil';
+    $('rv-name-help').textContent = kary
+      ? 'Hasil pencarian menampilkan nama, NIP, dan bagian.'
+      : 'Hasil pencarian menampilkan nama, No Anggota, dan kelompok.';
     $('rv-no').value = '';
     $('rv-name').value = '';
     $('rv-barcode').value = '';
@@ -4208,7 +4377,10 @@
     var kary = kind === 'karyawan';
     $('rp-type-a').classList.toggle('active', !kary);
     $('rp-type-k').classList.toggle('active', kary);
+    $('rp-type-a').setAttribute('aria-pressed', kary ? 'false' : 'true');
+    $('rp-type-k').setAttribute('aria-pressed', kary ? 'true' : 'false');
     $('rp-no-label').textContent = (kary ? 'NIP' : 'No Anggota') + ' *';
+    $('rp-no').setAttribute('aria-label', kary ? 'NIP' : 'No Anggota');
     $('rp-no').placeholder = kary ? 'contoh: 1985XXXX' : 'contoh: A0001';
     $('rp-kartu').innerHTML = '';
   }
@@ -4227,13 +4399,21 @@
       .cariPemegang({ kind: STATE.rpKind, no: no });
   }
 
+  function renderRvEmpty(message) {
+    return '<div class="col-12"><div class="transaction-empty">' +
+      '<span class="transaction-empty-icon"><i class="bi bi-ticket-perforated"></i></span>' +
+      '<strong>Belum ada voucher untuk diredeem</strong>' +
+      '<span>' + message + '</span>' +
+      '</div></div>';
+  }
+
   function clearRvResult() {
     STATE.rvList = [];
     STATE.rvHolder = null;
     STATE.rvBarcodeTarget = '';
     $('rv-barcode').value = '';
-    $('rv-tabel').innerHTML = '<div class="col-12"><div class="empty">Pindai barcode atau ketik No Anggota / NIP lalu tekan Verifikasi.</div></div>';
-    $('rv-info').innerHTML = '<span>Pindai barcode untuk satu voucher, atau ketik No Anggota / NIP lalu tekan Verifikasi.</span><span></span>';
+    $('rv-tabel').innerHTML = renderRvEmpty('Cari nama pemegang atau pindai barcode voucher untuk menampilkan pilihan.');
+    $('rv-info').innerHTML = '<span>Pindai barcode untuk satu voucher, atau cari pemegang berdasarkan nama.</span><span></span>';
     $('rv-kartu').innerHTML = '';
     $('rv-checkall').checked = false;
     $('rv-redeem-btn').disabled = true;
@@ -4262,7 +4442,7 @@
       var pesanKosong = r.holder
         ? (target ? 'Barcode tidak menghasilkan voucher untuk ' + esc(no) + '.' : 'Identitas ditemukan di master, namun belum ada voucher untuk ' + esc(no) + '. Catat kredit tetap bisa dilakukan di tab Catat Kredit.')
         : (target ? 'Voucher untuk barcode ' + esc(target) + ' tidak ditemukan.' : 'Tidak ada voucher untuk ' + esc(no) + '.');
-      $('rv-tabel').innerHTML = '<div class="col-12"><div class="empty">' + pesanKosong + '</div></div>';
+      $('rv-tabel').innerHTML = renderRvEmpty(pesanKosong);
       a.innerHTML = '<span>' + (r.holder ? 'Ditemukan di master ' + (kary ? 'Data Karyawan' : 'Anggota') + ' &middot; belum ada voucher.' : 'Tidak ada voucher ditemukan.') + '</span><span></span>';
     } else {
       $('rv-kartu').innerHTML = renderKartuPemegang(r.holder, kary);
