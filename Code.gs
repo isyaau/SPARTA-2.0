@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.50';
+var APP_VERSION = '2.0.51';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -2423,7 +2423,7 @@ function getDataAnggotaConfig_() {
 
 function readDataAnggotaExt_() {
   var conf = getDataAnggotaConfig_();
-  var cacheKey = 'sparta_d_anggota_ext';
+  var cacheKey = 'sparta_d_anggota_ext@' + APP_VERSION;
   var hit = cacheGetBig_(cacheKey);
   if (hit) {
     try { return { ok: true, message: 'Data anggota dimuat (cache).', list: hit }; } catch (e) {}
@@ -2458,7 +2458,7 @@ function readDataAnggotaExt_() {
 }
 
 function clearDataAnggotaExtCache_() {
-  try { cacheRemoveBig_('sparta_d_anggota_ext'); } catch (e) {}
+  try { cacheRemoveBig_('sparta_d_anggota_ext@' + APP_VERSION); } catch (e) {}
 }
 
 function normalizeDataAnggotaExt_(row) {
@@ -2475,6 +2475,7 @@ function normalizeDataAnggotaExt_(row) {
     Nama: formatCell_(m['namatoko']) || formatCell_(m['atasnamarekening']) || formatCell_(m['username']),
     Alamat: formatCell_(m['alamatdomisili']) || formatCell_(m['alamatktp']),
     NoHP: formatCell_(m['nohp']),
+    Avatar: formatCell_(m['foto'] || m['fotoanggota'] || m['avatar'] || m['photourl'] || m['linkfoto'] || m['gambar']),
     TanggalDaftar: formatDateCell_(m['tanggalmasuk']),
     Status: normalizeStatusAnggota_(m['statusanggota'] || m['statuspegawai']),
     StatusPiutang: formatCell_(m['statuspiutang']),

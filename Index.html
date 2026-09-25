@@ -492,7 +492,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.50</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.51</div>
       </div>
     </div>
   </div>
@@ -527,7 +527,7 @@
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.50</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.51</small>
     </div>
   </aside>
 
@@ -760,7 +760,7 @@
         <div class="table-responsive">
           <table class="table table-hover table-sm align-middle">
             <thead class="table-light">
-              <tr><th class="small text-uppercase text-muted">No Anggota</th><th class="small text-uppercase text-muted">Nama</th><th class="small text-uppercase text-muted">No HP</th><th class="small text-uppercase text-muted">Status</th><th class="small text-uppercase text-muted">Aksi</th></tr>
+              <tr><th class="small text-uppercase text-muted">Foto</th><th class="small text-uppercase text-muted">No Anggota</th><th class="small text-uppercase text-muted">Nama</th><th class="small text-uppercase text-muted">No HP</th><th class="small text-uppercase text-muted">Status</th><th class="small text-uppercase text-muted">Aksi</th></tr>
             </thead>
             <tbody id="tabel-anggota"></tbody>
           </table>
@@ -3441,10 +3441,11 @@
     STATE.anggotaPage = r;
     PAGE.anggota.pages = r.pages;
     var tbody = $('tabel-anggota');
-    if (!r || !r.list.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">Tidak ada data.</td></tr>'; }
+    if (!r || !r.list.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">Tidak ada data.</td></tr>'; }
     else {
       tbody.innerHTML = r.list.map(function (a) {
         return '<tr>' +
+          '<td>' + avatarHtml(a.Avatar, a.Nama, 36) + '</td>' +
           '<td><b>' + esc(a.NoAnggota) + '</b></td>' +
           '<td>' + esc(a.Nama) + '</td>' +
           '<td>' + esc(a.NoHP) + '</td>' +
@@ -3644,7 +3645,7 @@
   function avatarHtml(url, nama, size) {
     var s = size || 36;
     var u = String(url || '').trim();
-    if (/^https?:\/\//i.test(u)) {
+    if (/^(?:https?:\/\/|data:image\/(?:png|jpe?g|gif|webp|avif);base64,)/i.test(u)) {
       return '<img src="' + esc(u) + '" alt="foto" class="rounded-circle" style="width:' + s + 'px;height:' + s + 'px;object-fit:cover;" onerror="this.style.display=\'none\'">';
     }
     return '<span class="rounded-circle d-inline-flex align-items-center justify-content-center" style="width:' + s + 'px;height:' + s + 'px;background:var(--primary);color:#fff;font-weight:700;font-size:' + Math.round(s * .4) + 'px;">' + initials(nama) + '</span>';
