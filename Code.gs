@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.51';
+var APP_VERSION = '2.0.52';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -4142,21 +4142,30 @@ function buildStrukWa_(kind, struk) {
   return { ok: true, tel: tel, url: 'https://wa.me/' + tel + '?text=' + encodeURIComponent(msg), pesan: msg };
 }
 
-/** Tautan struk WA untuk satu baris Mutasi (redeem voucher). */
-function mutasiWa(data) {
+/** Validasi parameter bersama untuk fitur struk baris Mutasi (WA & cetak ulang). */
+function mutasiCari_(data) {
   data = data || {};
   var kind = data.kind === 'karyawan' ? 'karyawan' : 'anggota';
   var u = validasiSesi(String(data.token || '').trim());
-  if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
+  if (!u) return { ok: false, message: 'Sesi berakhir. Silakan login kembali.' };
   var id = String(data.id || '').trim();
-  if (!id) return getErrorObj_('ID mutasi kosong.');
+  if (!id) return { ok: false, message: 'ID mutasi kosong.' };
+  return { ok: true, kind: kind, u: u, id: id };
+}
+
+/**
+ * Susun objek struk dari satu baris Mutasi (redeem voucher). Semua baris
+ * mutasi dengan Nota Toko + identitas yang sama digabung menjadi satu struk,
+ * sehingga hasil Cetak Ulang sama dengan struk saat redeem pertama.
+ */
+function mutasiStrukObj_(kind, u, id) {
   var res = mutasiCore_(kind, u, { full: true });
-  if (!res.ok) return res;
+  if (!res.ok) return { ok: false, message: res.message };
   var pilih = null;
   for (var i = 0; i < res.list.length; i++) {
     if (String(res.list[i].IDSystem) === id) { pilih = res.list[i]; break; }
   }
-  if (!pilih) return getErrorObj_('Mutasi ' + id + ' tidak ditemukan.');
+  if (!pilih) return { ok: false, message: 'Mutasi ' + id + ' tidak ditemukan.' };
   var nota = String(pilih.NotaToko || '');
   var identPilih = String(pilih.NoAnggota || pilih.NIP || '');
   var group = res.list.filter(function (x) {
@@ -4169,25 +4178,57 @@ function mutasiWa(data) {
   });
   var total = group.reduce(function (s, x) { return s + cleanNum_(x.Nilai); }, 0);
   var first = group[0] || pilih;
+  var ids = group.map(function (x) { return String(x.IDSystem || ''); }).filter(function (v, i, a) { return v && a.indexOf(v) === i; });
+  var no = String(first.NoAnggota || first.NIP || '');
+  var pem = kind === 'karyawan' ? cariPemegangFallbackKaryawan_(no) : cariPemegangFallbackAnggota_(no);
   var struk = {
     id: String(first.IDSystem || ''),
+    ids: ids,
     jumlah: group.length,
     tanggal: String(first.Waktu || ''),
-    nama: String(first.Nama || ''),
-    no: String(first.NoAnggota || first.NIP || ''),
-    kelompok: String(first.Kelompok || ''),
+    nota: nota,
+    jenis: kind === 'karyawan' ? 'Karyawan' : 'Anggota',
+    nama: String((pem && pem.Nama) || first.Nama || ''),
+    no: no,
+    kelompok: String((pem && (pem.Kelompok || pem.Bagian)) || first.Kelompok || ''),
     toko: String(first.Toko || ''),
     petugas: String(first.Petugas || ''),
     items: items,
-    total: total
+    total: total,
+    piutangId: '',
+    piutangNominal: 0,
+    cetakUlang: true
   };
-  var wa = buildStrukWa_(kind, struk);
+  return { ok: true, struk: struk };
+}
+
+/** Tautan struk WA untuk satu baris Mutasi (redeem voucher). */
+function mutasiWa(data) {
+  var g = mutasiCari_(data);
+  if (!g.ok) return g;
+  var b = mutasiStrukObj_(g.kind, g.u, g.id);
+  if (!b.ok) return b;
+  var wa = buildStrukWa_(g.kind, b.struk);
   return {
     ok: wa.ok,
     url: wa.ok ? wa.url : '',
     tel: wa.ok ? wa.tel : '',
     message: wa.ok ? 'Struk siap dikirim.' : 'Nomor WA pemegang/toko tidak ditemukan.'
   };
+}
+
+/** Struk satu baris Mutasi untuk Cetak Ulang di menu Mutasi. */
+function mutasiStruk(data) {
+  var g = mutasiCari_(data);
+  if (!g.ok) return g;
+  var b = mutasiStrukObj_(g.kind, g.u, g.id);
+  if (!b.ok) return b;
+  var struk = b.struk;
+  var wa = buildStrukWa_(g.kind, struk);
+  struk.waUrl = wa.ok ? wa.url : '';
+  struk.waTel = wa.ok ? wa.tel : '';
+  struk.waMsg = wa.ok ? wa.pesan : '';
+  return { ok: true, kind: g.kind, struk: struk, message: 'Struk siap dicetak ulang.' };
 }
 
 function catatPiutang_(isKaryawan, no, jumlah, tanggal, uraian, jatuhTempo) {
