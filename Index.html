@@ -342,7 +342,15 @@
       overflow-x: hidden; overflow-y: auto;
       transition: width .28s cubic-bezier(.4, 0, .2, 1), box-shadow .28s ease;
       will-change: width;
+      /* Scrollbar tipis gelap: scrollbar putih di sidebar gelap terlihat berantakan
+         dan membuat kolom 68px ikut bergeser. */
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,.25) transparent;
     }
+    .sidebar::-webkit-scrollbar { width: 6px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.25); border-radius: 3px; }
+    .sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.4); }
     .sidebar-brand { border-bottom: 1px solid rgba(255,255,255,.15); transition: padding .28s cubic-bezier(.4, 0, .2, 1), text-align .2s; }
     .sidebar-title { display: flex; align-items: center; gap: .4rem; font-weight: 800; font-size: 1.05rem; color: #fff; }
     .sidebar-brand-name { text-align: justify; font-weight: 800; font-size: 1.15rem; letter-spacing: .03em; color: #fff; }
@@ -424,12 +432,20 @@
         transition: opacity .14s ease, visibility 0s linear .28s,
           max-height .28s cubic-bezier(.4,0,.2,1), max-width .28s cubic-bezier(.4,0,.2,1);
       }
-      .sidebar-mini .sidebar-nav .nav-chevron { opacity: 0 !important; }
+      .sidebar-mini .sidebar-nav .nav-chevron {
+        /* WAJIB width:0 + margin-left:0, kalau tidak "margin-left:auto" tetap memakan
+           ruang sehingga ikon Member terdorong ke kiri dan tidak center. */
+        width: 0 !important; max-width: 0 !important; margin-left: 0 !important;
+        opacity: 0 !important; overflow: hidden !important;
+        transition: opacity .14s ease, width .24s cubic-bezier(.4,0,.2,1), max-width .24s cubic-bezier(.4,0,.2,1), margin-left .24s cubic-bezier(.4,0,.2,1);
+      }
+      .sidebar-mini .sidebar-nav button.nav-link > i:not(.nav-chevron) { font-size: 1.15rem; }
       .sidebar-mini .sidebar-nav button.nav-link {
         justify-content: center; padding: 11px 8px; gap: 0;
       }
       .sidebar-mini .sidebar-nav .nav-group .nav-sub {
         max-height: 0 !important; opacity: 0 !important; visibility: hidden !important;
+        padding-top: 0 !important; padding-bottom: 0 !important;
       }
       .sidebar-mini .sidebar-footer { padding-left: .5rem !important; padding-right: .5rem !important; }
       .sidebar-mini .sidebar-footer .btn { padding-left: 8px; padding-right: 8px; }
@@ -612,7 +628,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.57</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.58</div>
       </div>
     </div>
   </div>
@@ -650,7 +666,7 @@
       <button class="sidebar-toggle d-none d-lg-flex" onclick="toggleSidebarMini()" id="sidebar-toggle-btn" title="Ciutkan / perbesar sidebar" aria-label="Ciutkan atau perbesar sidebar">
         <i class="bi bi-chevron-left" id="sidebar-toggle-icon"></i><span>Ciutkan Sidebar</span>
       </button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.57</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.58</small>
     </div>
   </aside>
 
@@ -2897,10 +2913,15 @@
     }
   }
 
-  function toggleSidebarMini() {
-    var aktif = !sidebarMiniAktif();
+  function setSidebarMini(aktif, simpan) {
     terapkanSidebarMini(aktif);
-    try { localStorage.setItem(SIDEBAR_MINI_KEY, aktif ? '1' : '0'); } catch (e) {}
+    if (simpan !== false) {
+      try { localStorage.setItem(SIDEBAR_MINI_KEY, aktif ? '1' : '0'); } catch (e) {}
+    }
+  }
+
+  function toggleSidebarMini() {
+    setSidebarMini(!sidebarMiniAktif(), true);
   }
 
   function muatSidebarMini() {
@@ -3295,7 +3316,16 @@
 
   function toggleMemberSub(btn) {
     var grp = btn.closest('.nav-group');
-    if (grp) { grp.classList.toggle('open'); document.body.classList.remove('sidebar-open'); }
+    if (!grp) return;
+    if (sidebarMiniAktif()) {
+      /* Di mode ciut sub-menu terkunci (tidak terlihat), jadi percepat sidebar dulu
+         lalu buka grupnya - kalau tidak tombol Member terasa tidak berfungsi. */
+      setSidebarMini(false, true);
+      grp.classList.add('open');
+    } else {
+      grp.classList.toggle('open');
+    }
+    document.body.classList.remove('sidebar-open');
   }
 
   function loadVoucherActive() {
