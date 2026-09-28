@@ -521,7 +521,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.53</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.54</div>
       </div>
     </div>
   </div>
@@ -556,7 +556,7 @@
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.53</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.54</small>
     </div>
   </aside>
 
@@ -4270,7 +4270,7 @@
           '<div class="text-muted small">' + esc(m.Toko) + ' &middot; ' + esc(m.Petugas) + '</div></td>' +
           '<td class="money text-end"><b>' + formatIDR(m.Nilai) + '</b></td>' +
           '<td class="text-nowrap text-end">' +
-          '<button class="btn btn-outline-warning btn-sm" onclick="mCetakStruk(\'' + esc(m.IDSystem) + '\')" title="Cetak ulang struk"><i class="bi bi-printer"></i></button> ' +
+          '<button class="btn btn-outline-dark btn-sm" onclick="mCetakStruk(\'' + esc(m.IDSystem) + '\')" title="Cetak ulang struk"><i class="bi bi-printer"></i></button> ' +
           '<button class="btn btn-outline-success btn-sm" onclick="mKirimNotif(\'' + esc(m.IDSystem) + '\')" title="Kirim struk WA"><i class="bi bi-whatsapp"></i></button>' +
           '</td>' +
           '</tr>';
