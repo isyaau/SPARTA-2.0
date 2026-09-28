@@ -349,6 +349,33 @@
     .sidebar-nav .nav-sub button.nav-link { padding-left: 30px; padding-top: 8px; padding-bottom: 8px; font-size: .92rem; color: #d1d5db; }
     .sidebar-nav .nav-group .nav-chevron { margin-left: auto; font-size: .8rem; transition: transform .2s; }
     .sidebar-nav .nav-group.open .nav-chevron { transform: rotate(180deg); }
+    .sidebar-toggle {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 9px 14px; margin-top: 10px;
+      border: 1px solid rgba(255,255,255,.25); border-radius: 8px;
+      background: rgba(255,255,255,.06); color: #e5e7eb; font-size: .88rem;
+    }
+    .sidebar-toggle:hover { background: rgba(220,38,38,.22); color: #fff; }
+    .topbar .btn-sidebar-toggle { border: 1px solid var(--bs-border-color); }
+    /* === SIDEBAR COLLAPSED (hanya desktop >= 992px) === */
+    @media (min-width: 992px) {
+      body.sidebar-mini .sidebar { width: 68px; }
+      body.sidebar-mini .sidebar-brand { padding-left: .5rem !important; padding-right: .5rem !important; }
+      body.sidebar-mini .sidebar-brand img { max-width: 40px !important; }
+      body.sidebar-mini .sidebar-brand-name,
+      body.sidebar-mini .sidebar-brand-desc,
+      body.sidebar-mini .sidebar-label,
+      body.sidebar-mini .sidebar-nav button.nav-link span,
+      body.sidebar-mini .sidebar-nav .nav-chevron,
+      body.sidebar-mini .sidebar-footer .btn span,
+      body.sidebar-mini .sidebar-footer > small { display: none; }
+      body.sidebar-mini .sidebar-nav button.nav-link {
+        justify-content: center; padding: 11px 8px; gap: 0;
+      }
+      body.sidebar-mini .sidebar-nav .nav-sub { display: none !important; }
+      body.sidebar-mini .sidebar-footer .btn { padding-left: 8px; padding-right: 8px; }
+      body.sidebar-mini .sidebar-toggle span { display: none; }
+    }
     .app-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; background: #f3f4f6; }
     .topbar {
       position: relative; z-index: 1020; background: #fff;
@@ -521,7 +548,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.54</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.55</div>
       </div>
     </div>
   </div>
@@ -555,14 +582,20 @@
       <button id="nav-pengaturan" class="nav-link admin-only" onclick="showPage('pengaturan')" style="display:none"><i class="bi bi-gear-fill"></i><span>Pengaturan</span></button>
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
-      <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.54</small>
+      <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i><span>Muat Ulang</span></button>
+      <button class="sidebar-toggle d-none d-lg-flex" onclick="toggleSidebarMini()" id="sidebar-toggle-btn" title="Ciutkan / perbesar sidebar" aria-label="Ciutkan atau perbesar sidebar">
+        <i class="bi bi-chevron-left" id="sidebar-toggle-icon"></i><span>Ciutkan Sidebar</span>
+      </button>
+<small class="d-block text-center text-white-50 mt-2">v2.0.55</small>
     </div>
   </aside>
 
   <div class="app-main">
     <header class="topbar px-3 py-2">
       <button class="btn btn-outline-secondary d-lg-none" onclick="toggleSidebar()" aria-label="Buka menu"><i class="bi bi-list"></i></button>
+      <button class="btn btn-outline-secondary d-none d-lg-inline-flex align-items-center btn-sidebar-toggle" onclick="toggleSidebarMini()" id="sidebar-toggle-topbar" title="Ciutkan / perbesar sidebar" aria-label="Ciutkan atau perbesar sidebar">
+        <i class="bi bi-layout-sidebar-inset" id="sidebar-toggle-icon-topbar"></i>
+      </button>
       <h1 class="topbar-title mb-0" id="topbar-title">Dashboard</h1>
       <div class="dropdown" id="notif-bell-dropdown">
         <button type="button" class="btn position-relative border-0" data-bs-toggle="dropdown" aria-expanded="false" title="Notifikasi" aria-label="Buka notifikasi">
@@ -2759,6 +2792,43 @@
   }
 
   function toggleSidebar() { document.body.classList.toggle('sidebar-open'); }
+
+  var SIDEBAR_MINI_KEY = 'sparta_sidebar_mini';
+  function sidebarMiniAktif() { return document.body.classList.contains('sidebar-mini'); }
+
+  function terapkanSidebarMini(aktif) {
+    document.body.classList.toggle('sidebar-mini', !!aktif);
+    var ic = $('sidebar-toggle-icon');
+    if (ic) ic.className = 'bi ' + (aktif ? 'bi-chevron-right' : 'bi-chevron-left');
+    var btn = $('sidebar-toggle-btn');
+    if (btn) btn.setAttribute('aria-expanded', aktif ? 'false' : 'true');
+    var t2 = $('sidebar-toggle-topbar');
+    if (t2) t2.setAttribute('aria-expanded', aktif ? 'false' : 'true');
+    /* Di mode ciut, teks tombol disembunyikan -> pakai atribut title sebagai tooltip. */
+    var nav = document.getElementById('sidebar-nav');
+    if (nav) {
+      Array.prototype.forEach.call(nav.querySelectorAll('button.nav-link'), function (b) {
+        var s = b.querySelector('span');
+        if (aktif) {
+          if (s && s.textContent.trim()) b.setAttribute('title', s.textContent.trim());
+        } else b.removeAttribute('title');
+      });
+    }
+    var ref = $('sidebar-toggle-btn');
+    if (ref) ref.setAttribute('title', aktif ? 'Perbesar sidebar' : 'Ciutkan sidebar');
+  }
+
+  function toggleSidebarMini() {
+    var aktif = !sidebarMiniAktif();
+    terapkanSidebarMini(aktif);
+    try { localStorage.setItem(SIDEBAR_MINI_KEY, aktif ? '1' : '0'); } catch (e) {}
+  }
+
+  function muatSidebarMini() {
+    var v = '';
+    try { v = localStorage.getItem(SIDEBAR_MINI_KEY) || ''; } catch (e) {}
+    terapkanSidebarMini(v === '1');
+  }
 
   function keluar() {
     kConfirm('Yakin ingin keluar dari aplikasi?', function () {
@@ -6755,6 +6825,7 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
       }
     });
     koreksiCelahAtas_();
+    muatSidebarMini();
     setTimeout(koreksiCelahAtas_, 400);
     setTimeout(koreksiCelahAtas_, 1200);
     cekSesi();
