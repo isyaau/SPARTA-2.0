@@ -360,19 +360,26 @@
     /* === SIDEBAR COLLAPSED (hanya desktop >= 992px) === */
     @media (min-width: 992px) {
       body.sidebar-mini .sidebar { width: 68px; }
-      body.sidebar-mini .sidebar-brand { padding-left: .5rem !important; padding-right: .5rem !important; }
-      body.sidebar-mini .sidebar-brand img { max-width: 40px !important; }
+      /* Header brand jadi logo saja, dirapikan: padding rapat + logo center. */
+      body.sidebar-mini .sidebar-brand {
+        padding: .6rem .5rem !important; text-align: center;
+      }
+      body.sidebar-mini .sidebar-brand img {
+        max-width: 100% !important; width: 40px !important; margin: 0 auto !important;
+      }
+      /* PENTING: pakai !important, kelas utilitas Bootstrap (d-block) juga !important. */
       body.sidebar-mini .sidebar-brand-name,
       body.sidebar-mini .sidebar-brand-desc,
       body.sidebar-mini .sidebar-label,
       body.sidebar-mini .sidebar-nav button.nav-link span,
       body.sidebar-mini .sidebar-nav .nav-chevron,
       body.sidebar-mini .sidebar-footer .btn span,
-      body.sidebar-mini .sidebar-footer > small { display: none; }
+      body.sidebar-mini .sidebar-footer > small { display: none !important; }
       body.sidebar-mini .sidebar-nav button.nav-link {
         justify-content: center; padding: 11px 8px; gap: 0;
       }
       body.sidebar-mini .sidebar-nav .nav-sub { display: none !important; }
+      body.sidebar-mini .sidebar-footer { padding-left: .5rem !important; padding-right: .5rem !important; }
       body.sidebar-mini .sidebar-footer .btn { padding-left: 8px; padding-right: 8px; }
       body.sidebar-mini .sidebar-toggle span { display: none; }
     }
@@ -548,7 +555,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.55</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.56</div>
       </div>
     </div>
   </div>
@@ -586,7 +593,7 @@
       <button class="sidebar-toggle d-none d-lg-flex" onclick="toggleSidebarMini()" id="sidebar-toggle-btn" title="Ciutkan / perbesar sidebar" aria-label="Ciutkan atau perbesar sidebar">
         <i class="bi bi-chevron-left" id="sidebar-toggle-icon"></i><span>Ciutkan Sidebar</span>
       </button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.55</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.56</small>
     </div>
   </aside>
 
@@ -2816,6 +2823,16 @@
     }
     var ref = $('sidebar-toggle-btn');
     if (ref) ref.setAttribute('title', aktif ? 'Perbesar sidebar' : 'Ciutkan sidebar');
+    /* Saat ciut, deskripsi brand disembunyikan -> jadikan tooltip agar tetap informatif. */
+    var brand = document.querySelector('.sidebar-brand');
+    if (brand) {
+      if (aktif) {
+        var nm = document.querySelector('.sidebar-brand-name');
+        var ds = document.querySelector('.sidebar-brand-desc');
+        brand.setAttribute('title', ((nm ? nm.textContent.trim() : 'SPARTA') +
+          (ds ? ' - ' + ds.textContent.trim() : '')));
+      } else brand.removeAttribute('title');
+    }
   }
 
   function toggleSidebarMini() {
