@@ -451,12 +451,16 @@
     #struk-print .struk-print .sp-ttd { margin-top: 34px; text-align: center; }
     @media print {
       @page { margin: 4mm; }
-      body.print-struk > * { display: none !important; }
-      body.print-struk #struk-print { display: block !important; }
-      html, body { height: auto !important; overflow: visible !important; }
-      body * { visibility: hidden !important; }
+      html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+      /* Mode cetak struk: sembunyikan SELURUH halaman kecuali isi #struk-print.
+         Memakai :not() (bukan selector anak langsung) karena #struk-print
+         berada di dalam .app-shell sehingga aturan "body > *" ikut
+         menyembunyikannya dan hasil cetak menjadi kosong. */
+      body.print-struk * { visibility: hidden !important; }
+      body.print-struk *:not(#struk-print):not(#struk-print *) { display: none !important; }
+      body.print-struk #struk-print { display: block !important; visibility: visible !important; position: static !important; width: auto !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
       #struk-print, #struk-print * { visibility: visible !important; }
-      #struk-print { position: absolute; left: 0; top: 0; width: 100%; background: #fff; }
+      body.print-struk #struk-print * { visibility: visible !important; }
       #lv-cetak, #lv-cetak * { visibility: visible !important; }
       #lv-cetak { position: absolute; left: 0; top: 0; width: 100%; padding: 16px; background: #fff; }
       #wjb-cetak, #wjb-cetak * { visibility: visible !important; }
@@ -517,7 +521,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.52</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.53</div>
       </div>
     </div>
   </div>
@@ -552,7 +556,7 @@
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.52</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.53</small>
     </div>
   </aside>
 
@@ -2607,7 +2611,10 @@
   </div>
 </div>
 
-<!-- Wadah cetak struk ( disembunyikan di layar, hanya tampil saat print ) -->
+<!-- Wadah cetak struk. Disembunyikan di layar; hanya tampil saat print.
+     PENTING: elemen ini secara DOM berada di dalam .app-shell (div .app-shell
+     belum ditutup di markup), sehingga saat pencetakan strukCetak() memindahkan
+     wadah ini ke <body> agar tidak ikut tersembunyi. -->
 <div id="struk-print" aria-hidden="true"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -4849,14 +4856,19 @@ function padDigit(s, n) {
     var box = $('struk-print');
     if (!box) { window.print(); return; }
     box.innerHTML = '<div class="struk-print">' + strukPrintHtml(s) + '</div>';
+    /* Pindahkan wadah cetak ke <body>: di dalam .app-shell (flex, min-height
+       100vh) elemen bisa ikut tersembunyi/disalin saat print. */
+    var home = box.parentNode;
+    if (home !== document.body) document.body.appendChild(box);
     document.body.classList.add('print-struk');
     var selesai = function () {
       document.body.classList.remove('print-struk');
       box.innerHTML = '';
+      if (home && home !== document.body && home.isConnected) home.appendChild(box);
       window.removeEventListener('afterprint', selesai);
     };
     window.addEventListener('afterprint', selesai);
-    setTimeout(function () { window.print(); }, 60);
+    setTimeout(function () { window.print(); }, 80);
   }
 
   function strukWa() {
@@ -6354,7 +6366,15 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
     tutupModal('modal-lv-cetak');
   }
 
+  /** Pastikan mode cetak struk dimatikan sebelum mencetak laporan. */
+  function matikanCetakStruk() {
+    document.body.classList.remove('print-struk');
+    var box = $('struk-print');
+    if (box) box.innerHTML = '';
+  }
+
   function lvCetakPrint() {
+    matikanCetakStruk();
     window.print();
   }
 
@@ -6535,6 +6555,7 @@ var headers = ['ID', 'ID Kredit', 'Tanggal', 'Metode Bayar', 'Jumlah', 'Sisa Set
   }
 
   function wjbCetakPrint() {
+    matikanCetakStruk();
     window.print();
   }
 
