@@ -426,12 +426,37 @@
     .struk-cetak .struk-bar { border-top: 1px dashed #888; border-bottom: 1px dashed #888; padding: 4px 0; margin: 8px 0; }
     .struk-cetak table { width: 100%; border-collapse: collapse; }
     .struk-cetak td { padding: 2px 4px; vertical-align: top; }
+    .struk-cetak td.struk-k { width: 34%; }
+    .struk-cetak td.struk-v { word-break: break-word; }
+    .struk-cetak td.struk-kode { width: 36%; }
+    .struk-cetak td.struk-label { width: 42%; }
+    .struk-cetak td.struk-nilai { width: 22%; text-align: right; white-space: nowrap; }
     .struk-cetak .struk-total { border-top: 2px solid #333; margin-top: 8px; padding-top: 6px; font-weight: 700; }
-    .struk-cetak .struk-ttd { margin-top: 56px; text-align: center; }
+    .struk-cetak .struk-ttd { margin-top: 40px; text-align: center; }
+    .struk-cetak .struk-orta { text-align: center; border-top: 1px dashed #888; margin-top: 10px; padding-top: 6px; }
+    #struk-print { display: none; }
+    #struk-print .struk-print { font: 12px/1.45 "Consolas", "Courier New", monospace; color: #000; width: 72mm; margin: 0 auto; }
+    #struk-print .struk-print h5 { font-size: 15px; font-weight: 800; margin: 0; letter-spacing: .5px; }
+    #struk-print .struk-print .sp-head { text-align: center; padding-bottom: 6px; border-bottom: 2px dashed #333; }
+    #struk-print .struk-print .sp-sub { text-align: center; font-size: 11px; }
+    #struk-print .struk-print table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    #struk-print .struk-print td { padding: 1px 0; vertical-align: top; word-break: break-word; }
+    #struk-print .struk-print td.k { width: 30%; }
+    #struk-print .struk-print td.v { width: 70%; }
+    #struk-print .struk-print td.c { width: 34%; }
+    #struk-print .struk-print td.l { width: 40%; }
+    #struk-print .struk-print td.r { width: 26%; text-align: right; white-space: nowrap; }
+    #struk-print .struk-print .sp-dash { border-top: 1px dashed #333; margin: 5px 0; }
+    #struk-print .struk-print .sp-total { font-size: 14px; font-weight: 800; padding-top: 2px; }
+    #struk-print .struk-print .sp-ttd { margin-top: 34px; text-align: center; }
     @media print {
+      @page { margin: 4mm; }
+      body.print-struk > * { display: none !important; }
+      body.print-struk #struk-print { display: block !important; }
+      html, body { height: auto !important; overflow: visible !important; }
       body * { visibility: hidden !important; }
-      #struk-cetak, #struk-cetak * { visibility: visible !important; }
-      #struk-cetak { position: absolute; left: 0; top: 0; width: 100%; padding: 16px; background: #fff; }
+      #struk-print, #struk-print * { visibility: visible !important; }
+      #struk-print { position: absolute; left: 0; top: 0; width: 100%; background: #fff; }
       #lv-cetak, #lv-cetak * { visibility: visible !important; }
       #lv-cetak { position: absolute; left: 0; top: 0; width: 100%; padding: 16px; background: #fff; }
       #wjb-cetak, #wjb-cetak * { visibility: visible !important; }
@@ -492,7 +517,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.51</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.52</div>
       </div>
     </div>
   </div>
@@ -527,7 +552,7 @@
     </nav>
     <div class="sidebar-footer px-3 py-3 border-top" style="border-color:rgba(255,255,255,.15)!important">
       <button class="btn btn-sm btn-outline-light w-100" onclick="refreshAll()"><i class="bi bi-arrow-clockwise"></i>Muat Ulang</button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.51</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.52</small>
     </div>
   </aside>
 
@@ -2494,7 +2519,7 @@
   <div class="modal-dialog modal-sm modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header border-0 pb-0">
-        <h5 class="modal-title fw-bold"><i class="bi bi-receipt text-success me-1"></i>Struk</h5>
+        <h5 class="modal-title fw-bold"><i class="bi bi-receipt text-success me-1"></i>Struk<span class="badge text-bg-warning ms-2 d-none" id="struk-badge">Cetak Ulang</span></h5>
         <button type="button" class="btn-close" onclick="strukTutup()"></button>
       </div>
       <div class="modal-body p-3">
@@ -2505,33 +2530,34 @@
             <div class="small" id="struk-jenis">-</div>
           </div>
           <table>
-            <tr><td>No Struk</td><td class="text-end" id="struk-no">-</td></tr>
-            <tr><td>Tanggal</td><td class="text-end" id="struk-tanggal">-</td></tr>
-            <tr><td>Nota</td><td class="text-end" id="struk-nota">-</td></tr>
+            <tr><td class="struk-k">No Struk</td><td class="text-end struk-v" id="struk-no">-</td></tr>
+            <tr><td class="struk-k">Tanggal</td><td class="text-end struk-v" id="struk-tanggal">-</td></tr>
+            <tr><td class="struk-k">Nota</td><td class="text-end struk-v" id="struk-nota">-</td></tr>
           </table>
           <div class="struk-bar"></div>
           <table>
-            <tr><td>Nama</td><td class="text-end" id="struk-nama">-</td></tr>
-            <tr><td id="struk-no-lbl">No Anggota</td><td class="text-end" id="struk-rvno">-</td></tr>
-            <tr id="struk-grup-wrap" style="display:none"><td id="struk-grup-lbl">Kelompok</td><td class="text-end" id="struk-grup">-</td></tr>
+            <tr><td class="struk-k">Nama</td><td class="text-end struk-v" id="struk-nama">-</td></tr>
+            <tr><td class="struk-k" id="struk-no-lbl">No Anggota</td><td class="text-end struk-v" id="struk-rvno">-</td></tr>
+            <tr id="struk-grup-wrap" style="display:none"><td class="struk-k" id="struk-grup-lbl">Kelompok</td><td class="text-end struk-v" id="struk-grup">-</td></tr>
           </table>
           <div class="struk-bar"></div>
           <table id="struk-items"></table>
           <table class="struk-total">
-            <tr><td>Total</td><td class="text-end" id="struk-total">-</td></tr>
+            <tr><td class="struk-k">Total</td><td class="text-end struk-v" id="struk-total">-</td></tr>
           </table>
           <div id="struk-piutang" style="display:none" class="struk-bar">
             <div class="small" id="struk-piutang-txt"></div>
           </div>
           <table>
-            <tr><td>Toko</td><td class="text-end" id="struk-toko">-</td></tr>
-            <tr><td>Kasir</td><td class="text-end" id="struk-kasir">-</td></tr>
+            <tr><td class="struk-k">Toko</td><td class="text-end struk-v" id="struk-toko">-</td></tr>
+            <tr><td class="struk-k">Kasir</td><td class="text-end struk-v" id="struk-kasir">-</td></tr>
           </table>
           <div class="struk-ttd">
             <div class="small">Kasir,</div>
-            <div style="height:56px"></div>
+            <div style="height:48px"></div>
             <div id="struk-kasir-ttd">-</div>
           </div>
+          <div class="struk-orta">MOHON SIMPAN STRUK INI</div>
         </div>
       </div>
       <div class="modal-footer">
@@ -2580,6 +2606,9 @@
     </div>
   </div>
 </div>
+
+<!-- Wadah cetak struk ( disembunyikan di layar, hanya tampil saat print ) -->
+<div id="struk-print" aria-hidden="true"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -4234,12 +4263,26 @@
           '<div class="text-muted small">' + esc(m.Toko) + ' &middot; ' + esc(m.Petugas) + '</div></td>' +
           '<td class="money text-end"><b>' + formatIDR(m.Nilai) + '</b></td>' +
           '<td class="text-nowrap text-end">' +
+          '<button class="btn btn-outline-warning btn-sm" onclick="mCetakStruk(\'' + esc(m.IDSystem) + '\')" title="Cetak ulang struk"><i class="bi bi-printer"></i></button> ' +
           '<button class="btn btn-outline-success btn-sm" onclick="mKirimNotif(\'' + esc(m.IDSystem) + '\')" title="Kirim struk WA"><i class="bi bi-whatsapp"></i></button>' +
           '</td>' +
           '</tr>';
       }).join('');
     }
     renderPager('pager-mutasi', r, 'mutasi');
+  }
+
+  function mCetakStruk(id) {
+    busy(true, 'Menyiapkan struk untuk dicetak...');
+    google.script.run
+      .withSuccessHandler(function (d) {
+        busy(false);
+        if (!d || !d.ok) { showToast((d && d.message) || 'Struk tidak ditemukan.', true); return; }
+        tampilkanStruk(d.struk);
+        setTimeout(strukCetak, 420);
+      })
+      .withFailureHandler(function (e) { busy(false); showToast('Error: ' + e.message, true); })
+      .mutasiStruk({ token: SESSION.token, kind: STATE.mutasiSub === 'karyawan' ? 'karyawan' : 'anggota', id: id });
   }
 
   function mKirimNotif(id) {
@@ -4749,11 +4792,71 @@ function padDigit(s, n) {
   }
 
   function strukTutup() {
+    document.body.classList.remove('print-struk');
+    var box = $('struk-print');
+    if (box) box.innerHTML = '';
     tutupModal('modal-struk');
   }
 
+  function strukIds_(s) {
+    var ids = (s && Array.isArray(s.ids) && s.ids.length) ? s.ids.map(String) : [];
+    if (!ids.length && s && s.id) ids = String(s.id).split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+    return ids;
+  }
+
+  /** Bangun HTML struk khusus cetak (monospace, lebar 72mm, tanpa border kartu). */
+  function strukPrintHtml(s) {
+    var kary = s.jenis === 'Karyawan';
+    var ids = strukIds_(s);
+    var items = s.items || [];
+    function row(k, v) { return '<tr><td class="k">' + esc(k) + '</td><td class="v">' + esc(v == null || v === '' ? '-' : v) + '</td></tr>'; }
+    var h = '';
+    h += '<div class="sp-head"><h5>SPARTA KOPINKA</h5><div class="sp-sub">REDEEM VOUCHER</div>' +
+      '<div class="sp-sub">' + (kary ? 'KARYAWAN' : 'ANGGOTA') + ' &middot; ' + (items.length || s.jumlah || 1) + ' voucher</div></div>';
+    h += '<table>';
+    h += row('No Struk', ids[0] || s.id);
+    if (ids.length > 1) h += row('', '+' + (ids.length - 1) + ' ID lain: ' + ids.slice(1).join(', '));
+    h += row('Tanggal', s.tanggal);
+    h += row('Nota Toko', s.nota);
+    h += '</table><div class="sp-dash"></div>';
+    h += '<table>';
+    h += row('Nama', s.nama);
+    h += row(kary ? 'NIP' : 'No Anggota', s.no);
+    if (s.kelompok) h += row(kary ? 'Bagian' : 'Kelompok', s.kelompok);
+    h += '</table><div class="sp-dash"></div>';
+    h += '<table>';
+    items.forEach(function (it) {
+      h += '<tr><td class="c">' + esc(it.Kode) + '</td>' +
+        (it.Label ? '<td class="l">' + esc(it.Label) + '</td>' : '') +
+        '<td class="r">' + formatIDR(it.Nilai) + '</td></tr>';
+    });
+    h += '</table>';
+    h += '<div class="sp-dash"></div>';
+    h += '<table><tr class="sp-total"><td>TOTAL</td><td class="r">' + formatIDR(s.total) + '</td></tr></table>';
+    if (s.piutangId) h += '<table><tr><td class="k">Kredit</td><td class="v">' + esc(s.piutangId) + ' (' + formatIDR(s.piutangNominal) + ')</td></tr></table>';
+    h += '<table>';
+    h += row('Toko', s.toko);
+    h += row('Kasir', s.petugas);
+    h += '</table>';
+    h += '<div class="sp-ttd">Kasir,<br><br><br>' + esc(s.petugas || '-') + '</div>';
+    h += '<div class="sp-sub" style="text-align:center;margin-top:6px;border-top:1px dashed #333;padding-top:5px">MOHON SIMPAN STRUK INI</div>';
+    return h;
+  }
+
   function strukCetak() {
-    window.print();
+    var s = STATE.struk;
+    if (!s) { showToast('Struk belum siap dicetak.', true); return; }
+    var box = $('struk-print');
+    if (!box) { window.print(); return; }
+    box.innerHTML = '<div class="struk-print">' + strukPrintHtml(s) + '</div>';
+    document.body.classList.add('print-struk');
+    var selesai = function () {
+      document.body.classList.remove('print-struk');
+      box.innerHTML = '';
+      window.removeEventListener('afterprint', selesai);
+    };
+    window.addEventListener('afterprint', selesai);
+    setTimeout(function () { window.print(); }, 60);
   }
 
   function strukWa() {
@@ -4766,8 +4869,11 @@ function padDigit(s, n) {
     if (!s) return;
     STATE.struk = s;
     var kary = s.jenis === 'Karyawan';
-    $('struk-jenis').textContent = (kary ? 'KARYAWAN' : 'ANGGOTA') + ' - ' + (s.jumlah || 1) + ' voucher';
-    $('struk-no').textContent = s.id || '-';
+    var items = s.items || [];
+    var ids = strukIds_(s);
+    $('struk-badge').classList.toggle('d-none', !s.cetakUlang);
+    $('struk-jenis').textContent = (kary ? 'KARYAWAN' : 'ANGGOTA') + ' - ' + (items.length || s.jumlah || 1) + ' voucher';
+    $('struk-no').textContent = ids.length > 1 ? (ids[0] + ' (+' + (ids.length - 1) + ' ID)') : (ids[0] || s.id || '-');
     $('struk-tanggal').textContent = s.tanggal || '-';
     $('struk-nota').textContent = s.nota || '-';
     $('struk-nama').textContent = s.nama || '-';
@@ -4778,9 +4884,11 @@ function padDigit(s, n) {
       $('struk-grup-lbl').textContent = kary ? 'Bagian' : 'Kelompok';
       $('struk-grup').textContent = s.kelompok;
     } else $('struk-grup-wrap').style.display = 'none';
-    $('struk-items').innerHTML = (s.items || []).map(function (it) {
-      return '<tr><td>' + esc(it.Kode) + '</td><td class="text-end">' + formatIDR(it.Nilai) + '</td></tr>';
-    }).join('') + '<tr><td class="fw-bold">' + esc('Jumlah') + '</td><td class="text-end">' + (s.items || []).length + ' voucher</td></tr>';
+    $('struk-items').innerHTML = items.map(function (it) {
+      return '<tr><td class="struk-kode">' + esc(it.Kode) + '</td>' +
+        '<td class="struk-label small">' + esc(it.Label || '') + '</td>' +
+        '<td class="struk-nilai">' + formatIDR(it.Nilai) + '</td></tr>';
+    }).join('') + '<tr><td class="struk-kode fw-bold" colspan="2">Jumlah</td><td class="struk-nilai fw-bold">' + items.length + ' voucher</td></tr>';
     $('struk-total').textContent = formatIDR(s.total);
     if (s.piutangId) {
       $('struk-piutang').style.display = '';
@@ -4790,6 +4898,32 @@ function padDigit(s, n) {
     $('struk-kasir').textContent = s.petugas || '-';
     $('struk-kasir-ttd').textContent = s.petugas || '-';
     bukaModal('modal-struk');
+  }
+
+  /** Kosongkan seluruh isian form redeem agar siap untuk transaksi berikutnya. */
+  function resetFormRedeem(fokusBarcode) {
+    window._redeemConfirm = null;
+    ['rv-barcode', 'rv-no', 'rv-name', 'rv-nota', 'rv-cjml'].forEach(function (id) {
+      var el = $(id);
+      if (el) el.value = '';
+    });
+    rvHapusBukti();
+    $('rv-catat').checked = false;
+    rvCatat(false);
+    STATE.rvNameSeq++;
+    hideRvNameResults();
+    clearRvResult();
+    renderRvLookupReset();
+    refreshNotaPreview();
+    if (fokusBarcode !== false) {
+      var bc = $('rv-barcode');
+      if (bc) setTimeout(function () { bc.focus(); }, 60);
+    }
+  }
+
+  function renderRvLookupReset() {
+    $('rv-tabel').innerHTML = renderRvEmpty('Form sudah dikosongkan. Pindai barcode voucher atau cari pemegang untuk transaksi berikutnya.');
+    $('rv-info').innerHTML = '<span>Siap untuk redeem berikutnya &middot; total voucher terpakai hari ini tetap tercatat di menu Mutasi.</span><span></span>';
   }
 
   function doRedeemVoucher(kodelist, catat, jumlah, kind, no, nota) {
@@ -4804,14 +4938,8 @@ function padDigit(s, n) {
         console.log('[PERF] redeemVoucher server=' + ((r && r.ms != null) ? r.ms : '?') + 'ms client=' + Math.round(performance.now() - _rf0) + 'ms' + ' seg=' + JSON.stringify((r && r.perf) || {}));
         showToast((r && r.message) || 'Selesai.', !r || !r.ok);
         if (r && r.ok) {
-          $('rv-catat').checked = false;
-          rvCatat(false);
           if (rvBuktiBase64 && r.piutangId) pUploadBukti(kind, r.piutangId, rvBuktiBase64);
-          rvHapusBukti();
-          if (STATE.rvKind === kind) {
-            $('rv-barcode').value = '';
-            cariVoucher();
-          }
+          if (STATE.rvKind === kind) resetFormRedeem();
           loadDashboard();
           tampilkanStruk(r.struk);
         }
