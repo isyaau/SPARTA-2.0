@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.58';
+var APP_VERSION = '2.0.59';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
