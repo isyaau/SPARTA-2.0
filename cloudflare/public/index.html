@@ -351,7 +351,7 @@
     .sidebar::-webkit-scrollbar-track { background: transparent; }
     .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.25); border-radius: 3px; }
     .sidebar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.4); }
-    .sidebar-brand { border-bottom: 1px solid rgba(255,255,255,.15); transition: padding .28s cubic-bezier(.4, 0, .2, 1), text-align .2s; }
+    .sidebar-brand { border-bottom: 1px solid rgba(255,255,255,.15); transition: padding .28s cubic-bezier(.4, 0, .2, 1), margin .28s cubic-bezier(.4, 0, .2, 1), text-align .2s; }
     .sidebar-title { display: flex; align-items: center; gap: .4rem; font-weight: 800; font-size: 1.05rem; color: #fff; }
     .sidebar-brand-name { text-align: justify; font-weight: 800; font-size: 1.15rem; letter-spacing: .03em; color: #fff; }
     .sidebar-brand-desc { font-size: .74rem; line-height: 1.45; color: rgba(255,255,255,.65); text-align: justify; }
@@ -413,6 +413,8 @@
       /* Header brand jadi logo saja, dirapikan: padding rapat + logo center. */
       .sidebar-mini .sidebar-brand {
         padding: .6rem .5rem !important; text-align: center;
+        /* Mode ciut label "Menu" hilang, jadi sisakan jarak agar menu tidak mepet header. */
+        margin-bottom: .625rem !important;
       }
       .sidebar-mini .sidebar-brand img {
         max-width: 100% !important; width: 40px !important; margin: 0 auto !important;
@@ -628,7 +630,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.58</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.59</div>
       </div>
     </div>
   </div>
@@ -666,7 +668,7 @@
       <button class="sidebar-toggle d-none d-lg-flex" onclick="toggleSidebarMini()" id="sidebar-toggle-btn" title="Ciutkan / perbesar sidebar" aria-label="Ciutkan atau perbesar sidebar">
         <i class="bi bi-chevron-left" id="sidebar-toggle-icon"></i><span>Ciutkan Sidebar</span>
       </button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.58</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.59</small>
     </div>
   </aside>
 
