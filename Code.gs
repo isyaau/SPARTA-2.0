@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.64';
+var APP_VERSION = '2.0.65';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -32,6 +32,9 @@ var BUKTI_PIUTANG_FOLDER_ID = '1hqHPBr0duB5Ffyrmy5K7mzcpzMZ8DWC';
 
 // Lampiran broadcast (PDF/gambar): folder induk & batas unggahan
 var LAMPIRAN_FOLDER_PARENT_ID = '1hqHPBr0duB5Ffyrmy5K7mzcpzMZ8DWC';
+// Folder tujuan lampiran per jenis penerima (dibagikan ke script); kosong = pakai folder induk
+var LAMPIRAN_FOLDER_ANGGOTA_ID = '1UmdX6k_bTjAq6Ag9x8YCE2E-cUF1KxdT';
+var LAMPIRAN_FOLDER_KARYAWAN_ID = '1HZjO2u_IcYihz9OpAPHnGHGiarSGRrXU';
 var LAMPIRAN_MAX_BYTES = 5 * 1024 * 1024; // 5 MB per file
 var LAMPIRAN_MAX_COUNT = 5;               // maksimal file per broadcast
 var LAMPIRAN_FOLDER_PROP = 'SPARTA_FOLDER_LAMPIRAN_BROADCAST';
@@ -1870,8 +1873,15 @@ function getNotifikasiOptions(data) {
   };
 }
 
-/** Folder Drive untuk lampiran broadcast (dibuat sekali, id disimpan di ScriptProperties). */
-function lampiranBroadcastFolder_() {
+/** Folder Drive tujuan lampiran broadcast: khusus anggota/karyawan bila id terkonfigurasi & bisa dibuka. */
+function lampiranBroadcastFolder_(kind) {
+  var k = String(kind || '').trim().toLowerCase();
+  var khusus = k === 'anggota' ? LAMPIRAN_FOLDER_ANGGOTA_ID
+    : k === 'karyawan' ? LAMPIRAN_FOLDER_KARYAWAN_ID
+    : '';
+  if (khusus) {
+    try { return DriveApp.getFolderById(khusus); } catch (e) {}
+  }
   var props = PropertiesService.getScriptProperties();
   var id = String(props.getProperty(LAMPIRAN_FOLDER_PROP) || '').trim();
   if (id) {
@@ -1910,7 +1920,7 @@ function lampiranNamaBersih_(nama) {
 }
 
 /** Simpan SATU lampiran broadcast (data URL PDF/gambar) ke Drive; kembalikan string JSON meta. */
-function simpanLampiranBroadcast_(dataUrl, nama) {
+function simpanLampiranBroadcast_(dataUrl, nama, kind) {
   var raw = String(dataUrl || '');
   var sep = raw.indexOf('base64,');
   if (sep < 0) throw new Error('Data lampiran tidak valid.');
@@ -1930,7 +1940,7 @@ function simpanLampiranBroadcast_(dataUrl, nama) {
   var namaBersih = lampiranNamaBersih_(nama);
   if (namaBersih.indexOf('.') < 0) namaBersih += '.' + lampiranExt_(mime);
   var blob = Utilities.newBlob(bytes, mime, namaBersih);
-  var file = lampiranBroadcastFolder_().createFile(blob);
+  var file = lampiranBroadcastFolder_(kind).createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
   return JSON.stringify({ id: file.getId(), nama: namaBersih, mime: mime, ukuran: bytes.length });
 }
@@ -1943,7 +1953,7 @@ function uploadLampiranBroadcast(data) {
   var base64 = String(data.base64 || '');
   if (!base64 || base64.indexOf('base64,') < 0) return getErrorObj_('Data lampiran tidak valid.');
   try {
-    var meta = simpanLampiranBroadcast_(base64, String(data.nama || ''));
+    var meta = simpanLampiranBroadcast_(base64, String(data.nama || ''), String(data.kind || ''));
     return { ok: true, lampiran: meta, pesan: 'Lampiran terunggah.' };
   } catch (e) {
     return getErrorObj_('Gagal mengunggah lampiran: ' + e.message);
@@ -1959,6 +1969,36 @@ function hapusLampiranBroadcast(data) {
   if (!/^[a-zA-Z0-9_-]{10,}$/.test(id)) return { ok: true, pesan: 'Lampiran dibuang.' };
   try { DriveApp.getFileById(id).setTrashed(true); } catch (e) {}
   return { ok: true, pesan: 'Lampiran dibuang.' };
+}
+
+/** DIAGNOSTIK SEMENTARA - akses folder tujuan lampiran (hapus setelah investigasi). */
+function debugLampiranFolder() {
+  var out = {};
+  [['anggota', LAMPIRAN_FOLDER_ANGGOTA_ID], ['karyawan', LAMPIRAN_FOLDER_KARYAWAN_ID], ['induk', LAMPIRAN_FOLDER_PARENT_ID]].forEach(function (p) {
+    var info = { id: p[1] };
+    try {
+      var f = DriveApp.getFolderById(p[1]);
+      info.nama = f.getName();
+      info.url = f.getUrl();
+      try { info.bisaTulis = f.isEditable(); } catch (e) { info.bisaTulis = 'unknown: ' + e.message; }
+      info.punyaInduk = f.getParents().hasNext();
+    } catch (e) {
+      info.error = e.message;
+    }
+    out[p[0]] = info;
+  });
+  var konfigurasi = {};
+  ['anggota', 'karyawan', 'toko'].forEach(function (k) {
+    var info = {};
+    try {
+      var folder = lampiranBroadcastFolder_(k);
+      info.terpakai = folder.getId();
+      info.nama = folder.getName();
+    } catch (e) { info.error = e.message; }
+    konfigurasi[k] = info;
+  });
+  out.resolusi = konfigurasi;
+  return { ok: true, data: out };
 }
 
 /** Validasi & parse string lampiran (JSON array meta) yang dikirim frontend. */
@@ -2001,11 +2041,22 @@ function sendNotifikasi(data) {
   }
 
   var lampiran = '';
+  var lampiranList = [];
   try {
-    var lampiranList = parseLampiranBroadcast_(data.lampiran);
+    lampiranList = parseLampiranBroadcast_(data.lampiran);
     if (lampiranList.length) lampiran = JSON.stringify(lampiranList);
   } catch (e) {
     return getErrorObj_(e.message);
+  }
+  // Pastikan berkas berada di folder tujuan sesuai jenis penerima
+  // (jenis bisa berubah setelah lampiran diunggah; "toko" = folder induk).
+  if (lampiranList.length) {
+    try {
+      var folderTujuan = lampiranBroadcastFolder_(kind);
+      lampiranList.forEach(function (f) {
+        try { DriveApp.getFileById(String(f.id || '')).moveTo(folderTujuan); } catch (e) {}
+      });
+    } catch (e) {}
   }
 
   var recipients = kind === 'toko'

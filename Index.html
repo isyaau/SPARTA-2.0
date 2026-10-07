@@ -630,7 +630,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.64</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.65</div>
       </div>
     </div>
   </div>
@@ -668,7 +668,7 @@
       <button class="sidebar-toggle d-none d-lg-flex" onclick="toggleSidebarMini()" id="sidebar-toggle-btn" title="Ciutkan / perbesar sidebar" aria-label="Ciutkan atau perbesar sidebar">
         <i class="bi bi-chevron-left" id="sidebar-toggle-icon"></i><span>Ciutkan Sidebar</span>
       </button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.64</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.65</small>
     </div>
   </aside>
 
@@ -2473,7 +2473,7 @@
           <div class="col-12">
             <label class="form-label small text-muted" for="nb-lampiran">Lampiran PDF / Gambar (opsional)</label>
             <input type="file" class="form-control" id="nb-lampiran" accept=".pdf,application/pdf,image/*" multiple onchange="nbLampiranPilih(this)">
-            <div class="form-text">PDF atau gambar (JPG/PNG/GIF/WEBP), maksimal 5 MB per file dan maksimal 5 file. Berkas diunggah ke Google Drive dan dibagikan ke penerima.</div>
+            <div class="form-text">PDF atau gambar (JPG/PNG/GIF/WEBP), maksimal 5 MB per file dan maksimal 5 file. Berkas diunggah ke folder Google Drive sesuai jenis penerima (Anggota / Karyawan / Toko) dan dibagikan ke penerima.</div>
             <div id="nb-lampiran-list" class="mt-2 d-flex flex-column gap-2"></div>
             <div class="small text-muted mt-1" id="nb-lampiran-count">0 file</div>
           </div>
@@ -6022,7 +6022,7 @@ function padDigit(s, n) {
             showToast((e && e.message) || 'Gagal mengunggah lampiran "' + f.name + '".', true);
             selesai();
           })
-          .uploadLampiranBroadcast({ token: SESSION.token, base64: data, nama: f.name });
+          .uploadLampiranBroadcast({ token: SESSION.token, base64: data, nama: f.name, kind: ($('nb-kind') && $('nb-kind').value) || '' });
       };
       fr.onerror = function () {
         showToast('Gagal membaca "' + f.name + '".', true);
