@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.59';
+var APP_VERSION = '2.0.60';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -29,6 +29,12 @@ var AVATAR_FOLDER_ID = '1hqHPBr0duB5Ffyrmy5K7mzcpzMZ8DWC';
 
 // Folder Google Drive untuk foto bukti transaksi piutang karyawan
 var BUKTI_PIUTANG_FOLDER_ID = '1hqHPBr0duB5Ffyrmy5K7mzcpzMZ8DWC';
+
+// Lampiran broadcast (PDF/gambar): folder induk & batas unggahan
+var LAMPIRAN_FOLDER_PARENT_ID = '1hqHPBr0duB5Ffyrmy5K7mzcpzMZ8DWC';
+var LAMPIRAN_MAX_BYTES = 5 * 1024 * 1024; // 5 MB per file
+var LAMPIRAN_MAX_COUNT = 5;               // maksimal file per broadcast
+var LAMPIRAN_FOLDER_PROP = 'SPARTA_FOLDER_LAMPIRAN_BROADCAST';
 
 // Workbook utama SPARTA MAIN (sheet mirror, USERS, PENGATURAN, dst).
 // Dipakai saat dieksekusi lewat Apps Script Execution API (tidak ada
@@ -1863,6 +1869,119 @@ function getNotifikasiOptions(data) {
   };
 }
 
+/** Folder Drive untuk lampiran broadcast (dibuat sekali, id disimpan di ScriptProperties). */
+function lampiranBroadcastFolder_() {
+  var props = PropertiesService.getScriptProperties();
+  var id = String(props.getProperty(LAMPIRAN_FOLDER_PROP) || '').trim();
+  if (id) {
+    try { return DriveApp.getFolderById(id); } catch (e) {}
+  }
+  var parent = DriveApp.getFolderById(LAMPIRAN_FOLDER_PARENT_ID);
+  var it = parent.getFoldersByName('Lampiran Broadcast');
+  var folder = it.hasNext() ? it.next() : parent.createFolder('Lampiran Broadcast');
+  props.setProperty(LAMPIRAN_FOLDER_PROP, folder.getId());
+  return folder;
+}
+
+function lampiranExt_(mime) {
+  var map = {
+    'application/pdf': 'pdf',
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+    'image/bmp': 'bmp',
+    'image/svg+xml': 'svg'
+  };
+  return map[String(mime || '').toLowerCase()] || 'bin';
+}
+
+function lampiranNamaBersih_(nama) {
+  var s = String(nama || '').replace(/[\\\/:*?"<>|]+/g, '_').trim();
+  s = s.split(/[\\/]/).pop();
+  if (s.length > 100) {
+    var dot = s.lastIndexOf('.');
+    var ext = dot > 0 ? s.slice(dot) : '';
+    s = s.slice(0, Math.max(100 - ext.length, 1)) + ext;
+  }
+  return s || ('lampiran_' + new Date().getTime());
+}
+
+/** Simpan SATU lampiran broadcast (data URL PDF/gambar) ke Drive; kembalikan string JSON meta. */
+function simpanLampiranBroadcast_(dataUrl, nama) {
+  var raw = String(dataUrl || '');
+  var sep = raw.indexOf('base64,');
+  if (sep < 0) throw new Error('Data lampiran tidak valid.');
+  var header = raw.slice(0, sep);
+  var mime = String(header.split(';')[0] || '').replace(/^data:/i, '').toLowerCase();
+  var gambar = /^image\/[a-z0-9.+-]+$/.test(mime);
+  if (mime !== 'application/pdf' && !gambar) {
+    throw new Error('Lampiran harus berupa PDF atau gambar (JPG/PNG/GIF/WEBP).');
+  }
+  var b64 = raw.slice(sep + 7);
+  if (!b64) throw new Error('Data lampiran kosong.');
+  if (Math.floor(b64.length * 3 / 4) > LAMPIRAN_MAX_BYTES) {
+    throw new Error('Ukuran lampiran melebihi batas 5 MB.');
+  }
+  var bytes;
+  try { bytes = Utilities.base64Decode(b64); } catch (e) { throw new Error('Data lampiran rusak.'); }
+  var namaBersih = lampiranNamaBersih_(nama);
+  if (namaBersih.indexOf('.') < 0) namaBersih += '.' + lampiranExt_(mime);
+  var blob = Utilities.newBlob(bytes, mime, namaBersih);
+  var file = lampiranBroadcastFolder_().createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return JSON.stringify({ id: file.getId(), nama: namaBersih, mime: mime, ukuran: bytes.length });
+}
+
+/** Unggah lampiran broadcast (dipanggil frontend per file saat dipilih). */
+function uploadLampiranBroadcast(data) {
+  data = data || {};
+  var u = validasiSesi(String(data.token || '').trim());
+  if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
+  var base64 = String(data.base64 || '');
+  if (!base64 || base64.indexOf('base64,') < 0) return getErrorObj_('Data lampiran tidak valid.');
+  try {
+    var meta = simpanLampiranBroadcast_(base64, String(data.nama || ''));
+    return { ok: true, lampiran: meta, pesan: 'Lampiran terunggah.' };
+  } catch (e) {
+    return getErrorObj_('Gagal mengunggah lampiran: ' + e.message);
+  }
+}
+
+/** Buang lampiran yang tidak jadi dikirim (dipakai saat user menghapus chip lampiran). */
+function hapusLampiranBroadcast(data) {
+  data = data || {};
+  var u = validasiSesi(String(data.token || '').trim());
+  if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
+  var id = String(data.id || '').trim();
+  if (!/^[a-zA-Z0-9_-]{10,}$/.test(id)) return { ok: true, pesan: 'Lampiran dibuang.' };
+  try { DriveApp.getFileById(id).setTrashed(true); } catch (e) {}
+  return { ok: true, pesan: 'Lampiran dibuang.' };
+}
+
+/** Validasi & parse string lampiran (JSON array meta) yang dikirim frontend. */
+function parseLampiranBroadcast_(nilai) {
+  var s = String(nilai || '').trim();
+  if (!s) return [];
+  var arr;
+  try { arr = JSON.parse(s); } catch (e) { throw new Error('Lampiran tidak valid. Unggah ulang lampiran.'); }
+  if (Object.prototype.toString.call(arr) !== '[object Array]') arr = [arr];
+  if (!arr.length) return [];
+  if (arr.length > LAMPIRAN_MAX_COUNT) throw new Error('Maksimal ' + LAMPIRAN_MAX_COUNT + ' lampiran per broadcast.');
+  var out = [];
+  for (var i = 0; i < arr.length; i++) {
+    var o = arr[i] || {};
+    var id = String(o.id || '').trim();
+    var nama = lampiranNamaBersih_(o.nama || '');
+    var mime = String(o.mime || '').toLowerCase();
+    if (!id || !/^[a-zA-Z0-9_-]{10,}$/.test(id)) throw new Error('Lampiran tidak valid. Unggah ulang lampiran.');
+    if (mime !== 'application/pdf' && !/^image\//.test(mime)) throw new Error('Lampiran harus berupa PDF atau gambar.');
+    out.push({ id: id, nama: nama, mime: mime, ukuran: Number(o.ukuran) || 0 });
+  }
+  return out;
+}
+
 /** Broadcast notifikasi: tulis ke sheet "Notifikasi" (MyKopinka/HRIS) + mirror SPARTA. */
 function sendNotifikasi(data) {
   data = data || {};
@@ -1880,6 +1999,14 @@ function sendNotifikasi(data) {
     return getErrorObj_('Jenis target tidak valid untuk broadcast toko.');
   }
 
+  var lampiran = '';
+  try {
+    var lampiranList = parseLampiranBroadcast_(data.lampiran);
+    if (lampiranList.length) lampiran = JSON.stringify(lampiranList);
+  } catch (e) {
+    return getErrorObj_(e.message);
+  }
+
   var recipients = kind === 'toko'
     ? resolveTokoRecipients_(tipe, data.target)
     : kind === 'karyawan'
@@ -1892,7 +2019,7 @@ function sendNotifikasi(data) {
     return getErrorObj_('Terlalu banyak penerima (' + recipients.length + '). Broadcast dibatasi maksimal 5000 baris.');
   }
 
-  if (kind === 'toko') return sendNotifikasiToko_(tipe, judul, pesan, recipients, String(u.Username || ''));
+  if (kind === 'toko') return sendNotifikasiToko_(tipe, judul, pesan, recipients, String(u.Username || ''), lampiran);
 
   var conf = getNotifikasiConfig_(kind);
   if (!conf.spreadsheetId) {
@@ -1926,6 +2053,7 @@ function sendNotifikasi(data) {
         if (h === 'Judul') return judul;
         if (h === 'Pesan') return pesan;
         if (h === 'Status') return 'Terkirim';
+        if (h === 'Lampiran') return lampiran;
         if (h === 'Pengirim Toko') return pengirimToko;
         if (h === 'Pengirim User') return pengirimUser;
         return '';
@@ -1966,7 +2094,8 @@ function notifWaktuKey_(v) {
 }
 
 /** Broadcast notifikasi per toko: tulis ke sheet "Notifikasi" pada spreadsheet SPARTA. */
-function sendNotifikasiToko_(tipe, judul, pesan, stores, dibuatOleh) {
+function sendNotifikasiToko_(tipe, judul, pesan, stores, dibuatOleh, lampiran) {
+  lampiran = String(lampiran || '');
   var sheet = getSpreadsheet_().getSheetByName(SPARTA_NOTIF_SHEET_NAME);
   if (!sheet) return getErrorObj_('Sheet "Notifikasi" tidak ditemukan pada spreadsheet SPARTA.');
   var lock = LockService.getScriptLock();
@@ -1987,6 +2116,7 @@ function sendNotifikasiToko_(tipe, judul, pesan, stores, dibuatOleh) {
         if (h === 'Judul') return judul;
         if (h === 'Pesan') return pesan;
         if (h === 'Status') return 'Terkirim';
+        if (h === 'Lampiran') return lampiran;
         if (h === 'Dibuat Oleh') return dibuatOleh || '';
         return '';
       });
