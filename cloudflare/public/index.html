@@ -630,7 +630,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.62</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.64</div>
       </div>
     </div>
   </div>
@@ -668,7 +668,7 @@
       <button class="sidebar-toggle d-none d-lg-flex" onclick="toggleSidebarMini()" id="sidebar-toggle-btn" title="Ciutkan / perbesar sidebar" aria-label="Ciutkan atau perbesar sidebar">
         <i class="bi bi-chevron-left" id="sidebar-toggle-icon"></i><span>Ciutkan Sidebar</span>
       </button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.62</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.64</small>
     </div>
   </aside>
 
@@ -1602,7 +1602,7 @@
           </div>
           <button type="button" class="btn btn-success" id="broadcast-btn" onclick="bukaModalBroadcast()"><i class="bi bi-send me-1"></i>Kirim Broadcast</button>
         </div>
-        <div class="small text-muted">Toko dapat mengirim ke <b>Anggota</b> atau <b>Karyawan</b>; Admin dapat mengirim ke <b>Toko</b>. Pilih tab di bawah untuk melihat riwayat pengiriman Anda per jenis penerima.</div>
+        <div class="small text-muted">Toko dapat mengirim ke <b>Anggota</b> atau <b>Karyawan</b>; Admin dapat mengirim ke <b>Toko</b>. Pilih tab di bawah untuk melihat riwayat broadcast per jenis penerima (admin melihat semua riwayat, toko hanya miliknya).</div>
       </div>
     </div>
 
@@ -1615,7 +1615,7 @@
     <div class="card">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
-          <h6 class="fw-bold mb-0">Riwayat Broadcast yang Anda Kirim <span id="bcast-status" class="sub fw-normal"></span></h6>
+          <h6 class="fw-bold mb-0">Riwayat Broadcast Terkirim <span id="bcast-status" class="sub fw-normal"></span></h6>
           <div class="d-flex align-items-center gap-2 flex-wrap">
             <div class="input-group input-group-sm" style="width:280px;max-width:100%">
               <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
@@ -5755,7 +5755,7 @@ function padDigit(s, n) {
     var r = localPage(list, PAGE.broadcast.page, PAGE.broadcast.size);
     PAGE.broadcast.pages = r.pages;
     if (!r.list.length) {
-      tb.innerHTML = '<tr><td colspan="7" class="empty">Belum ada broadcast yang Anda kirim.</td></tr>';
+      tb.innerHTML = '<tr><td colspan="7" class="empty">Belum ada broadcast pada tab ini.</td></tr>';
       renderPager('pager-broadcast', r, 'broadcast');
       return;
     }
