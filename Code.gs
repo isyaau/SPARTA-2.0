@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.65';
+var APP_VERSION = '2.0.66';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -1980,8 +1980,15 @@ function debugLampiranFolder() {
       var f = DriveApp.getFolderById(p[1]);
       info.nama = f.getName();
       info.url = f.getUrl();
-      try { info.bisaTulis = f.isEditable(); } catch (e) { info.bisaTulis = 'unknown: ' + e.message; }
-      info.punyaInduk = f.getParents().hasNext();
+      info.sharing = String(f.getSharingAccess());
+      // Uji tulis nyata: buat berkas kecil lalu buang ( folder view-only akan gagal di sini )
+      try {
+        var uji = f.createFile(Utilities.newBlob('uji SPARTA', 'text/plain', 'sparta_uji_akses.txt'));
+        info.ujiTulis = 'OK';
+        uji.setTrashed(true);
+      } catch (e) {
+        info.ujiTulis = 'GAGAL: ' + e.message;
+      }
     } catch (e) {
       info.error = e.message;
     }
@@ -1998,6 +2005,7 @@ function debugLampiranFolder() {
     konfigurasi[k] = info;
   });
   out.resolusi = konfigurasi;
+  out.propsLampiran = String(PropertiesService.getScriptProperties().getProperty(LAMPIRAN_FOLDER_PROP) || '(kosong)');
   return { ok: true, data: out };
 }
 
