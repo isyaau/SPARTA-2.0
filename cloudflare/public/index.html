@@ -630,7 +630,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.59</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.60</div>
       </div>
     </div>
   </div>
@@ -668,7 +668,7 @@
       <button class="sidebar-toggle d-none d-lg-flex" onclick="toggleSidebarMini()" id="sidebar-toggle-btn" title="Ciutkan / perbesar sidebar" aria-label="Ciutkan atau perbesar sidebar">
         <i class="bi bi-chevron-left" id="sidebar-toggle-icon"></i><span>Ciutkan Sidebar</span>
       </button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.59</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.60</small>
     </div>
   </aside>
 
@@ -2458,6 +2458,13 @@
             <label class="form-label small text-muted" for="nb-pesan">Pesan *</label>
             <textarea id="nb-pesan" class="form-control" rows="4" placeholder="Isi pesan broadcast..." maxlength="1000"></textarea>
           </div>
+          <div class="col-12">
+            <label class="form-label small text-muted" for="nb-lampiran">Lampiran PDF / Gambar (opsional)</label>
+            <input type="file" class="form-control" id="nb-lampiran" accept=".pdf,application/pdf,image/*" multiple onchange="nbLampiranPilih(this)">
+            <div class="form-text">PDF atau gambar (JPG/PNG/GIF/WEBP), maksimal 5 MB per file dan maksimal 5 file. Berkas diunggah ke Google Drive dan dibagikan ke penerima.</div>
+            <div id="nb-lampiran-list" class="mt-2 d-flex flex-column gap-2"></div>
+            <div class="small text-muted mt-1" id="nb-lampiran-count">0 file</div>
+          </div>
 <div class="col-12">
             <div class="alert alert-light border small mb-0">
               <div><i class="bi bi-person-badge text-primary me-1"></i>Dikirim oleh: <b id="nb-pengirim">-</b></div>
@@ -2510,6 +2517,10 @@
           <div class="wa-chat">
             <div class="wa-bubble" id="nd-pesan"></div>
           </div>
+        </div>
+        <div class="detail-section d-none" id="nd-lampiran-sec">
+          <div class="detail-section-head"><i class="bi bi-paperclip"></i>Lampiran</div>
+          <div id="nd-lampiran" class="d-flex flex-column gap-2"></div>
         </div>
       </div>
       <div class="modal-footer">
@@ -5601,7 +5612,7 @@ function padDigit(s, n) {
             : '<span class="badge rounded-pill text-bg-info">Karyawan</span>') + '</td>' +
         '<td>' + esc(n.Tipe) + '</td>' +
         '<td>' + esc(n.Target) + '<div class="small text-muted">' + esc(n.DetailTarget) + '</div></td>' +
-        '<td>' + esc(n.Judul) + '</td>' +
+        '<td>' + esc(n.Judul) + (parseLampiran_(n.Lampiran).length ? ' <i class="bi bi-paperclip small text-muted" title="Ada lampiran"></i>' : '') + '</td>' +
         '<td class="small text-muted">' + esc(ringkasPesan(n.Pesan || '', 60)) + '</td>' +
         '<td>' + badge(n.Status || 'Terkirim') + '</td>' +
         '</tr>';
@@ -5670,7 +5681,7 @@ function padDigit(s, n) {
             '<span class="badge rounded-pill text-bg-' + (String(n.Kind) === 'Anggota' ? 'primary' : String(n.Kind) === 'Toko' ? 'secondary' : 'info') + '">' + esc(n.Kind) + '</span>' +
             (dibacaSaya ? '<span class="badge rounded-pill text-bg-success">Dibaca</span>' : '<span class="badge rounded-pill text-bg-warning">Baru</span>') +
           '</span>' +
-          '<span class="nc-title' + (dibacaSaya ? '' : ' nc-title-new') + '">' + esc(n.Judul || '-') + '</span>' +
+          '<span class="nc-title' + (dibacaSaya ? '' : ' nc-title-new') + '">' + esc(n.Judul || '-') + (parseLampiran_(n.Lampiran).length ? ' <i class="bi bi-paperclip small"></i>' : '') + '</span>' +
           '<span class="nc-pesan">' + esc(n.Pesan || '') + '</span>' +
           '<span class="nc-meta">' +
             '<span><i class="bi bi-clock"></i>' + esc(n.Waktu) + '</span>' +
@@ -5704,6 +5715,7 @@ function padDigit(s, n) {
     $('nd-status').innerHTML = badge(n.Status || '');
     $('nd-dibaca').textContent = n.DibacaOleh || '-';
     $('nd-pesan').textContent = n.Pesan || '-';
+    renderLampiranDetail_(n.Lampiran);
     bukaModal('modal-notif-detail');
   }
 
@@ -5729,6 +5741,186 @@ function padDigit(s, n) {
       })
       .withFailureHandler(function (e) { busy(false); showToast(e.message || 'Gagal menandai notifikasi.', true); })
       .tandaiDibaca({ token: SESSION.token, kind: kindOfNotif(n), Waktu: n.Waktu, Judul: n.Judul, DetailTarget: n.DetailTarget, Target: n.Target });
+  }
+
+  /* ---------------- LAMPIRAN BROADCAST ---------------- */
+  var LAMPIRAN_MAX_BYTES = 5 * 1024 * 1024;
+  var LAMPIRAN_MAX_COUNT = 5;
+  var NB_LAMPIRAN = [];
+  var NB_LAMPIRAN_PREVIEW = {};
+
+  function fmtUkuranBerkas(n) {
+    n = Number(n) || 0;
+    if (n >= 1048576) return (Math.round(n / 1048576 * 10) / 10) + ' MB';
+    if (n >= 1024) return Math.round(n / 1024) + ' KB';
+    return n + ' B';
+  }
+
+  function nbLampiranReset() {
+    NB_LAMPIRAN = [];
+    NB_LAMPIRAN_PREVIEW = {};
+    var i = $('nb-lampiran');
+    if (i) i.value = '';
+    nbLampiranRender();
+  }
+
+  function nbLampiranRenderBusy(on) {
+    var cnt = $('nb-lampiran-count');
+    if (cnt) {
+      cnt.innerHTML = on
+        ? '<span class="spinner-border spinner-border-sm" role="status"></span> Mengunggah...'
+        : NB_LAMPIRAN.length + ' file';
+    }
+  }
+
+  function nbLampiranRender() {
+    var wrap = $('nb-lampiran-list');
+    var cnt = $('nb-lampiran-count');
+    if (cnt) cnt.textContent = NB_LAMPIRAN.length + ' file';
+    if (!wrap) return;
+    if (!NB_LAMPIRAN.length) { wrap.innerHTML = ''; return; }
+    wrap.innerHTML = NB_LAMPIRAN.map(function (s, i) {
+      var m = {};
+      try { m = JSON.parse(s) || {}; } catch (e) {}
+      var isPdf = String(m.mime || '') === 'application/pdf';
+      var img = NB_LAMPIRAN_PREVIEW[String(m.id || '')];
+      var thumb = img
+        ? '<img src="' + esc(img) + '" alt="Pratinjau lampiran" style="width:44px;height:44px;object-fit:cover;border-radius:6px">'
+        : '<span class="d-inline-flex align-items-center justify-content-center rounded fw-bold ' + (isPdf ? 'bg-danger' : 'bg-primary') + ' text-white" style="width:44px;height:44px;font-size:11px">' + (isPdf ? 'PDF' : 'IMG') + '</span>';
+      return '<div class="d-flex align-items-center gap-2 border rounded p-2 bg-light">' +
+        thumb +
+        '<div class="flex-grow-1 min-w-0">' +
+          '<div class="small fw-semibold text-truncate">' + esc(m.nama || 'Lampiran') + '</div>' +
+          '<div class="small text-muted">' + fmtUkuranBerkas(m.ukuran) + (isPdf ? ' &middot; PDF' : ' &middot; Gambar') + '</div>' +
+        '</div>' +
+        '<button type="button" class="btn btn-outline-danger btn-sm" onclick="nbLampiranHapus(' + i + ')" title="Hapus lampiran"><i class="bi bi-trash"></i></button>' +
+      '</div>';
+    }).join('');
+  }
+
+  function nbLampiranHapus(idx) {
+    var s = NB_LAMPIRAN[idx];
+    if (!s) return;
+    var m = {};
+    try { m = JSON.parse(s) || {}; } catch (e) {}
+    NB_LAMPIRAN.splice(idx, 1);
+    if (m.id) {
+      delete NB_LAMPIRAN_PREVIEW[String(m.id)];
+      google.script.run.hapusLampiranBroadcast({ token: SESSION.token, id: m.id });
+    }
+    nbLampiranRender();
+  }
+
+  function nbLampiranPilih(input) {
+    var files = input.files ? Array.prototype.slice.call(input.files) : [];
+    input.value = '';
+    if (!files.length) return;
+    var sisa = LAMPIRAN_MAX_COUNT - NB_LAMPIRAN.length;
+    if (sisa <= 0) { showToast('Maksimal ' + LAMPIRAN_MAX_COUNT + ' lampiran per broadcast.', true); return; }
+    if (files.length > sisa) {
+      files = files.slice(0, sisa);
+      showToast('Maksimal ' + LAMPIRAN_MAX_COUNT + ' lampiran per broadcast, berkas berlebih dilewati.', true);
+    }
+    var pending = files.length;
+    var selesai = function () {
+      pending--;
+      if (pending <= 0) nbLampiranRenderBusy(false);
+      nbLampiranRender();
+    };
+    nbLampiranRenderBusy(true);
+    files.forEach(function (f) {
+      var mime = String(f.type || '').toLowerCase();
+      if (mime !== 'application/pdf' && !/^image\//.test(mime)) {
+        showToast('"' + f.name + '" dilewati: lampiran harus PDF atau gambar.', true);
+        selesai();
+        return;
+      }
+      if (f.size > LAMPIRAN_MAX_BYTES) {
+        showToast('"' + f.name + '" dilewati: ukuran melebihi 5 MB.', true);
+        selesai();
+        return;
+      }
+      var fr = new FileReader();
+      fr.onload = function (ev) {
+        var data = String(ev.target.result || '');
+        if (data.indexOf('base64,') < 0) {
+          showToast('Gagal membaca "' + f.name + '".', true);
+          selesai();
+          return;
+        }
+        google.script.run
+          .withSuccessHandler(function (r) {
+            if (r && r.ok && r.lampiran) {
+              NB_LAMPIRAN.push(String(r.lampiran));
+              try {
+                var m = JSON.parse(r.lampiran) || {};
+                if (m.id) NB_LAMPIRAN_PREVIEW[String(m.id)] = data;
+              } catch (e) {}
+            } else {
+              showToast((r && r.message) || 'Gagal mengunggah lampiran "' + f.name + '".', true);
+            }
+            selesai();
+          })
+          .withFailureHandler(function (e) {
+            showToast((e && e.message) || 'Gagal mengunggah lampiran "' + f.name + '".', true);
+            selesai();
+          })
+          .uploadLampiranBroadcast({ token: SESSION.token, base64: data, nama: f.name });
+      };
+      fr.onerror = function () {
+        showToast('Gagal membaca "' + f.name + '".', true);
+        selesai();
+      };
+      fr.readAsDataURL(f);
+    });
+  }
+
+  function parseLampiran_(nilai) {
+    var s = String(nilai || '').trim();
+    if (!s) return [];
+    var arr = null;
+    if (s.charAt(0) === '[' || s.charAt(0) === '{') {
+      try { arr = JSON.parse(s); } catch (e) { arr = null; }
+    }
+    if (arr && Object.prototype.toString.call(arr) !== '[object Array]') arr = [arr];
+    if (!arr) {
+      var m = s.match(/drive\.google\.com\/file\/d\/([^\/\s]+)/);
+      if (m) arr = [{ id: m[1], nama: 'Lampiran', mime: '' }];
+      else if (/^https?:\/\//i.test(s)) arr = [{ id: '', nama: 'Lampiran', mime: '', url: s }];
+      else return [];
+    }
+    return arr.filter(function (o) { return o && (o.id || o.url); });
+  }
+
+  function renderLampiranDetail_(nilai) {
+    var sec = $('nd-lampiran-sec');
+    var box = $('nd-lampiran');
+    if (!sec || !box) return;
+    var list = parseLampiran_(nilai);
+    if (!list.length) { sec.classList.add('d-none'); box.innerHTML = ''; return; }
+    box.innerHTML = list.map(function (o) {
+      var isImg = /^image\//.test(String(o.mime || ''));
+      var open = o.url || ('https://drive.google.com/file/d/' + o.id + '/view');
+      var thumb = '';
+      if (isImg && o.id) {
+        thumb = '<img src="https://drive.google.com/thumbnail?id=' + encodeURIComponent(o.id) + '&sz=w800" alt="' + esc(o.nama || 'Lampiran') + '" ' +
+          'style="max-width:100%;max-height:260px;border-radius:8px;display:block" onerror="this.style.display=\'none\'">';
+      }
+      var ikon = isImg
+        ? '<i class="bi bi-image text-primary me-1"></i>'
+        : '<i class="bi bi-file-earmark-pdf text-danger me-1"></i>';
+      return '<div class="border rounded p-2 bg-light">' +
+        thumb +
+        '<div class="d-flex align-items-center gap-2 mt-1">' +
+          ikon +
+          '<span class="small fw-semibold flex-grow-1 text-truncate">' + esc(o.nama || 'Lampiran') + '</span>' +
+          '<a class="btn btn-outline-primary btn-sm" href="' + esc(open) + '" target="_blank" rel="noopener noreferrer">' +
+            '<i class="bi bi-box-arrow-up-right me-1"></i>' + (isImg ? 'Buka Gambar' : 'Buka Berkas') +
+          '</a>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    sec.classList.remove('d-none');
   }
 
   function broadcastToolbarLoading(on, label) {
@@ -5781,6 +5973,7 @@ function padDigit(s, n) {
     broadcastSentState(false);
     $('nb-judul').value = '';
     $('nb-pesan').value = '';
+    nbLampiranReset();
     buildBroadcastKinds();
     $('nb-kind').value = SESSION.role === 'admin' ? 'toko' : 'anggota';
     $('nb-target').innerHTML = '';
@@ -5932,7 +6125,7 @@ function padDigit(s, n) {
         broadcastBtnLoading(false);
         showToast(e.message || 'Gagal mengirim broadcast.', true);
       })
-      .sendNotifikasi({ token: SESSION.token, kind: kind, tipe: tipe, target: target, judul: judul, pesan: pesan });
+      .sendNotifikasi({ token: SESSION.token, kind: kind, tipe: tipe, target: target, judul: judul, pesan: pesan, lampiran: JSON.stringify(NB_LAMPIRAN) });
   }
 
   function pgBulet(username) {
