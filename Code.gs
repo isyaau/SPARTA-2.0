@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.66';
+var APP_VERSION = '2.0.67';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -27,14 +27,17 @@ var KOLOM = {
 // Folder Google Drive untuk penyimpanan foto avatar user
 var AVATAR_FOLDER_ID = '1hqHPBr0duB5Ffyrmy5K7mzcpzMZ8DWC';
 
-// Folder Google Drive untuk foto bukti transaksi piutang karyawan
+// Folder Google Drive untuk foto bukti transaksi piutang (per jenis; folder lama = cadangan)
 var BUKTI_PIUTANG_FOLDER_ID = '1hqHPBr0duB5Ffyrmy5K7mzcpzMZ8DWC';
+var BUKTI_PIUTANG_FOLDER_ANGGOTA_ID = '1zFKB6N4vjpJtnY1k_G6c1hutIhshLYyW';
+var BUKTI_PIUTANG_FOLDER_KARYAWAN_ID = '1zcwgKp5vCzy5ouj8mcO7Qb8sBdFFftnN';
 
 // Lampiran broadcast (PDF/gambar): folder induk & batas unggahan
 var LAMPIRAN_FOLDER_PARENT_ID = '1hqHPBr0duB5Ffyrmy5K7mzcpzMZ8DWC';
 // Folder tujuan lampiran per jenis penerima (dibagikan ke script); kosong = pakai folder induk
 var LAMPIRAN_FOLDER_ANGGOTA_ID = '1UmdX6k_bTjAq6Ag9x8YCE2E-cUF1KxdT';
 var LAMPIRAN_FOLDER_KARYAWAN_ID = '1HZjO2u_IcYihz9OpAPHnGHGiarSGRrXU';
+var LAMPIRAN_FOLDER_TOKO_ID = '1MYc6pJSj3hNLNvXow3wak9uRDeVUgAEB';
 var LAMPIRAN_MAX_BYTES = 5 * 1024 * 1024; // 5 MB per file
 var LAMPIRAN_MAX_COUNT = 5;               // maksimal file per broadcast
 var LAMPIRAN_FOLDER_PROP = 'SPARTA_FOLDER_LAMPIRAN_BROADCAST';
@@ -1878,6 +1881,7 @@ function lampiranBroadcastFolder_(kind) {
   var k = String(kind || '').trim().toLowerCase();
   var khusus = k === 'anggota' ? LAMPIRAN_FOLDER_ANGGOTA_ID
     : k === 'karyawan' ? LAMPIRAN_FOLDER_KARYAWAN_ID
+    : k === 'toko' ? LAMPIRAN_FOLDER_TOKO_ID
     : '';
   if (khusus) {
     try { return DriveApp.getFolderById(khusus); } catch (e) {}
@@ -1971,17 +1975,22 @@ function hapusLampiranBroadcast(data) {
   return { ok: true, pesan: 'Lampiran dibuang.' };
 }
 
-/** DIAGNOSTIK SEMENTARA - akses folder tujuan lampiran (hapus setelah investigasi). */
+/** DIAGNOSTIK SEMENTARA - akses folder tujuan lampiran/bukti (hapus setelah investigasi). */
 function debugLampiranFolder() {
   var out = {};
-  [['anggota', LAMPIRAN_FOLDER_ANGGOTA_ID], ['karyawan', LAMPIRAN_FOLDER_KARYAWAN_ID], ['induk', LAMPIRAN_FOLDER_PARENT_ID]].forEach(function (p) {
+  [
+    ['lampiran-anggota', LAMPIRAN_FOLDER_ANGGOTA_ID],
+    ['lampiran-karyawan', LAMPIRAN_FOLDER_KARYAWAN_ID],
+    ['lampiran-toko', LAMPIRAN_FOLDER_TOKO_ID],
+    ['bukti-anggota', BUKTI_PIUTANG_FOLDER_ANGGOTA_ID],
+    ['bukti-karyawan', BUKTI_PIUTANG_FOLDER_KARYAWAN_ID],
+    ['induk-lama', LAMPIRAN_FOLDER_PARENT_ID]
+  ].forEach(function (p) {
     var info = { id: p[1] };
     try {
       var f = DriveApp.getFolderById(p[1]);
       info.nama = f.getName();
-      info.url = f.getUrl();
       info.sharing = String(f.getSharingAccess());
-      // Uji tulis nyata: buat berkas kecil lalu buang ( folder view-only akan gagal di sini )
       try {
         var uji = f.createFile(Utilities.newBlob('uji SPARTA', 'text/plain', 'sparta_uji_akses.txt'));
         info.ujiTulis = 'OK';
@@ -2002,7 +2011,16 @@ function debugLampiranFolder() {
       info.terpakai = folder.getId();
       info.nama = folder.getName();
     } catch (e) { info.error = e.message; }
-    konfigurasi[k] = info;
+    konfigurasi['lampiran_' + k] = info;
+  });
+  ['anggota', 'karyawan'].forEach(function (k) {
+    var info = {};
+    try {
+      var folder = buktiPiutangFolder_(k);
+      info.terpakai = folder.getId();
+      info.nama = folder.getName();
+    } catch (e) { info.error = e.message; }
+    konfigurasi['bukti_' + k] = info;
   });
   out.resolusi = konfigurasi;
   out.propsLampiran = String(PropertiesService.getScriptProperties().getProperty(LAMPIRAN_FOLDER_PROP) || '(kosong)');
@@ -3231,7 +3249,7 @@ function uploadBuktiPiutangKaryawan(data) {
     }
     if (rowIndex < 2) return getErrorObj_('Kredit karyawan tidak ditemukan.');
 
-    var file = simpanFotoBukti_(base64, 'bukti_' + idSystem);
+    var file = simpanFotoBukti_(base64, 'bukti_' + idSystem, 'karyawan');
     var link = 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w800';
     var vCol = headers.indexOf('Verifikasi') + 1;
     if (vCol >= 1) sheet.getRange(rowIndex, vCol).setValue(link);
@@ -3243,12 +3261,23 @@ function uploadBuktiPiutangKaryawan(data) {
   }
 }
 
-function simpanFotoBukti_(base64, nama) {
+/** Folder tujuan foto bukti piutang (per jenis; fallback folder lama). */
+function buktiPiutangFolder_(kind) {
+  var id = String(kind || '').trim().toLowerCase() === 'anggota'
+    ? BUKTI_PIUTANG_FOLDER_ANGGOTA_ID
+    : BUKTI_PIUTANG_FOLDER_KARYAWAN_ID;
+  if (id) {
+    try { return DriveApp.getFolderById(id); } catch (e) {}
+  }
+  return DriveApp.getFolderById(BUKTI_PIUTANG_FOLDER_ID);
+}
+
+function simpanFotoBukti_(base64, nama, kind) {
   var parts = base64.split(',');
   var mime = /^data:(image\/[a-z+]+);/.exec(parts[0]);
   if (!mime) throw new Error('Format foto harus berupa image (JPG/PNG).');
   var bytes = Utilities.base64Decode(parts[1]);
-  var folder = DriveApp.getFolderById(BUKTI_PIUTANG_FOLDER_ID);
+  var folder = buktiPiutangFolder_(kind);
   var blob = Utilities.newBlob(bytes, mime[1], nama + '_' + new Date().getTime() + '.png');
   var file = folder.createFile(blob);
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
@@ -3460,7 +3489,7 @@ function uploadBuktiPiutangAnggota(data) {
     }
     if (rowIndex < 2) return getErrorObj_('Kredit anggota tidak ditemukan.');
 
-    var file = simpanFotoBukti_(base64, 'bukti_' + idSystem);
+    var file = simpanFotoBukti_(base64, 'bukti_' + idSystem, 'anggota');
     var link = 'https://drive.google.com/thumbnail?id=' + file.getId() + '&sz=w800';
     var vCol = headers.indexOf('Verifikasi') + 1;
     if (vCol >= 1) sheet.getRange(rowIndex, vCol).setValue(link);
