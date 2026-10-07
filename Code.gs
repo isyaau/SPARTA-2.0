@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.63';
+var APP_VERSION = '2.0.64';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -2194,7 +2194,7 @@ function notifSentByMe_(n, u) {
   return false;
 }
 
-/** Riwayat broadcast yang DIKIRIM oleh sesi saat ini, per tab (data.kind = toko|anggota|karyawan). */
+/** Riwayat broadcast per tab (data.kind = toko|anggota|karyawan). Admin melihat semua; non-admin hanya miliknya. */
 function getBroadcastRiwayat(data) {
   data = data || {};
   var u = validasiSesi(String(data.token || '').trim());
@@ -2212,14 +2212,14 @@ function getBroadcastRiwayat(data) {
       var resT = readNotifikasiToko_();
       if (msg.indexOf(resT.message || '') < 0) msg = (msg ? msg + ' ' : '') + (resT.message || '');
       (resT.list || []).forEach(function (n) {
-        if (notifSentByMe_(n, u)) merge.push(n);
+        if (isAdmin || notifSentByMe_(n, u)) merge.push(n);
       });
     } else {
       var res = readNotifikasiExt_(k);
       if (msg.indexOf(res.message || '') < 0) msg = (msg ? msg + ' ' : '') + (res.message || '');
       (res.list || []).forEach(function (n) {
         n.Kind = k === 'anggota' ? 'Anggota' : 'Karyawan';
-        if (notifSentByMe_(n, u)) merge.push(n);
+        if (isAdmin || notifSentByMe_(n, u)) merge.push(n);
       });
     }
   });
@@ -2239,53 +2239,6 @@ function getBroadcastRiwayat(data) {
   }
   r.message = msg;
   return r;
-}
-
-/** DIAGNOSTIK SEMENTARA - isi sheet mirror notifikasi (hapus setelah investigasi). */
-function debugNotifMirror() {
-  var out = {};
-  ['anggota', 'karyawan'].forEach(function (kind) {
-    var info = { sheetName: spartaMirrorSheetName_(kind, 'notifikasi') };
-    var sheet = getSpartaMirrorSheet_(kind, 'notifikasi');
-    info.ada = !!sheet;
-    if (!sheet) { out[kind] = info; return; }
-    info.lastRow = sheet.getLastRow();
-    info.lastCol = sheet.getLastColumn();
-    if (info.lastRow < 2) { out[kind] = info; return; }
-    var headers = sheet.getRange(1, 1, 1, info.lastCol).getValues()[0].map(function (h) { return String(h).trim(); });
-    info.headers = headers;
-    var n = Math.min(info.lastRow - 1, 1000);
-    var rows = sheet.getRange(2, 1, n, info.lastCol).getValues();
-    var idx = function (name) { return headers.indexOf(name); };
-    var iPU = idx('Pengirim User'), iDO = idx('Dibuat Oleh'), iPT = idx('Pengirim Toko');
-    var isi = { pengirimUser: 0, dibuatOleh: 0, pengirimToko: 0, kosongSemua: 0, total: rows.length };
-    var uPU = {}, uDO = {}, uPT = {};
-    rows.forEach(function (r) {
-      var pu = iPU > -1 ? String(r[iPU] === undefined ? '' : r[iPU]).trim() : '';
-      var d = iDO > -1 ? String(r[iDO] === undefined ? '' : r[iDO]).trim() : '';
-      var pt = iPT > -1 ? String(r[iPT] === undefined ? '' : r[iPT]).trim() : '';
-      if (pu) { isi.pengirimUser++; uPU[pu] = true; }
-      if (d) { isi.dibuatOleh++; uDO[d] = true; }
-      if (pt) { isi.pengirimToko++; uPT[pt] = true; }
-      if (!pu && !d && !pt) isi.kosongSemua++;
-    });
-    info.isi = isi;
-    info.uniq = {
-      pengirimUser: Object.keys(uPU).slice(0, 15),
-      dibuatOleh: Object.keys(uDO).slice(0, 15),
-      pengirimToko: Object.keys(uPT).slice(0, 15)
-    };
-    info.sample = rows.slice(0, 3).map(function (r) {
-      var o = {};
-      ['Waktu', 'Tipe', 'Tipe Target', 'Target', 'Detail Target', 'Judul', 'Pengirim User', 'Dibuat Oleh', 'Pengirim Toko'].forEach(function (h) {
-        var i = headers.indexOf(h);
-        if (i > -1) o[h] = String(r[i] === undefined ? '' : r[i]).slice(0, 50);
-      });
-      return o;
-    });
-    out[kind] = info;
-  });
-  return { ok: true, data: out };
 }
 
 /** Jumlah notifikasi belum dibaca untuk sesi saat ini (untuk badge navbar). */
