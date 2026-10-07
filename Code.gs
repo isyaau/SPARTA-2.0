@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.60';
+var APP_VERSION = '2.0.61';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -82,11 +82,19 @@ var NOTIF_ANGGOTA_SPREADSHEET_ID = '19E5XHDmDdozgqOuonxxINZSxdJzlOq54pBQPK8lijrE
 var NOTIF_ANGGOTA_SHEET_NAME = 'Notifikasi';
 var NOTIF_KARYAWAN_SPREADSHEET_ID = '1cmW56ti-flwoHLp_hG4P2stbMQ2ZwR-u6XgXWTVKd28'; // HRIS MAIN
 var NOTIF_KARYAWAN_SHEET_NAME = 'Notifikasi';
-var KOLOM_NOTIF = ['Waktu', 'Tipe', 'Target', 'Detail Target', 'Judul', 'Pesan', 'Status', 'Lampiran', 'Pengirim Toko', 'Pengirim User', 'Dibaca Oleh'];
+// Patokan header per jenis (9 / 12 / 9). Kolom lama yang sudah ada di sheet tidak dihapus,
+// hanya kolom yang belum ada yang ditambahkan di akhir (lihat ensureHeaderCols_).
+var KOLOM_NOTIF_ANGGOTA = ['Waktu', 'Tipe Target', 'Detail Target', 'Judul', 'Pesan', 'Status', 'Lampiran', 'Dibaca Oleh', 'Pengirim User'];
+var KOLOM_NOTIF_KARYAWAN = KOLOM_NOTIF_ANGGOTA.concat(['Tipe', 'Target', 'Pengirim Toko']);
 
 // Notifikasi per toko (sheet "Notifikasi" di spreadsheet SPARTA, ditulis admin / broadcast target Toko)
 var SPARTA_NOTIF_SHEET_NAME = 'Notifikasi';
-var KOLOM_NOTIF_TOKO = ['Waktu', 'Tipe Target', 'Detail Target', 'Judul', 'Pesan', 'Status', 'Lampiran', 'Dibaca Oleh', 'Dibuat Oleh'];
+var KOLOM_NOTIF_TOKO = ['Waktu', 'Tipe Target', 'Detail Target', 'Judul', 'Pesan', 'Status', 'Lampiran', 'Dibaca Oleh', 'Pengirim User'];
+
+/** Header yang diinginkan untuk sheet notifikasi anggota/karyawan. */
+function kolomNotif_(kind) {
+  return kind === 'karyawan' ? KOLOM_NOTIF_KARYAWAN : KOLOM_NOTIF_ANGGOTA;
+}
 
 // Sheet mirror di spreadsheet SPARTA (dua arah: MyKopinka/HRIS -> SPARTA)
 var SPARTA_SHEET_NAMES = {
@@ -1624,7 +1632,7 @@ function getNotifikasiConfigStatus() {
 function normalizeNotifikasi_(n) {
   return {
     Waktu: formatDateCell_(n['Waktu']),
-    Tipe: formatCell_(n['Tipe']),
+    Tipe: formatCell_(n['Tipe'] || n['Tipe Target']),
     Target: formatCell_(n['Target']),
     DetailTarget: formatCell_(n['Detail Target']),
     Judul: formatCell_(n['Judul']),
@@ -1633,6 +1641,7 @@ function normalizeNotifikasi_(n) {
     Lampiran: formatCell_(n['Lampiran']),
     PengirimToko: formatCell_(n['Pengirim Toko']),
     PengirimUser: formatCell_(n['Pengirim User']),
+    DibuatOleh: formatCell_(n['Dibuat Oleh']),
     DibacaOleh: formatCell_(n['Dibaca Oleh']),
     Row: Number(n.Row) || 0
   };
@@ -1673,7 +1682,7 @@ function normalizeNotifikasiToko_(n) {
     Status: formatCell_(n['Status']),
     Lampiran: formatCell_(n['Lampiran']),
     PengirimToko: '',
-    PengirimUser: '',
+    PengirimUser: formatCell_(n['Pengirim User']),
     DibacaOleh: formatCell_(n['Dibaca Oleh']),
     DibuatOleh: formatCell_(n['Dibuat Oleh']),
     Kind: 'Toko',
@@ -1735,14 +1744,6 @@ function notifTokoVisibleFor_(n, u) {
 /** Notifikasi anggota/karyawan yang DITERIMA: hanya admin melihat semua (toko hanya menerima notifikasi kind toko). */
 function notifPribadiVisibleFor_(n, u) {
   return String(u.Role || '').toLowerCase() === 'admin';
-}
-
-/** Notifikasi anggota/karyawan yang DIKIRIM oleh toko saat ini (untuk riwayat broadcast). */
-function notifPribadiSentBy_(n, u) {
-  var pt = String(n.PengirimToko || '').trim().toLowerCase();
-  if (!pt) return false;
-  var nama = String(u.NamaToko || '').trim().toLowerCase();
-  return !!nama && pt === nama;
 }
 
 function resolveTokoRecipients_(tipe, target) {
@@ -2036,19 +2037,25 @@ function sendNotifikasi(data) {
     var ss = SpreadsheetApp.openById(conf.spreadsheetId);
     var sheet = ss.getSheetByName(conf.sheetName) || ss.getSheets()[0];
     if (!sheet) return getErrorObj_('Sheet "' + conf.sheetName + '" tidak ditemukan pada spreadsheet notifikasi.');
-    ensureHeaderCols_(sheet, KOLOM_NOTIF);
+    ensureHeaderCols_(sheet, kolomNotif_(kind));
     var headers = sheet.getLastColumn() > 0
       ? sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); })
-      : KOLOM_NOTIF.slice();
+      : kolomNotif_(kind).slice();
+    var punyaKolomTarget = headers.indexOf('Target') > -1;
 
     var pengirimToko = String(u.NamaToko || '');
     var pengirimUser = String(u.Username || '');
     var allRows = recipients.map(function (r) {
-      var detail = residKey_(kind, r);
+      var detail = String(residKey_(kind, r) || '');
+      // Sheet tanpa kolom "Target": simpan target terpilih + resid agar riwayat tetap terbaca
+      // (per baris tetap unik karena resid berbeda tiap penerima).
+      if (!punyaKolomTarget && targetVal && targetVal !== detail) detail = targetVal + ' (' + detail + ')';
+      detail = teksIdent_(detail);
+      var targetNilai = teksIdent_(targetVal);
       return headers.map(function (h) {
         if (h === 'Waktu') return waktu;
-        if (h === 'Tipe') return tipeLabel;
-        if (h === 'Target') return targetVal;
+        if (h === 'Tipe' || h === 'Tipe Target') return tipeLabel;
+        if (h === 'Target') return targetNilai;
         if (h === 'Detail Target') return detail;
         if (h === 'Judul') return judul;
         if (h === 'Pesan') return pesan;
@@ -2056,6 +2063,7 @@ function sendNotifikasi(data) {
         if (h === 'Lampiran') return lampiran;
         if (h === 'Pengirim Toko') return pengirimToko;
         if (h === 'Pengirim User') return pengirimUser;
+        if (h === 'Dibuat Oleh') return pengirimUser;
         return '';
       });
     });
@@ -2064,10 +2072,10 @@ function sendNotifikasi(data) {
 
     var mirror = getSpartaMirrorSheet_(kind, 'notifikasi');
     if (mirror) {
-      ensureHeaderCols_(mirror, KOLOM_NOTIF);
+      ensureHeaderCols_(mirror, kolomNotif_(kind));
       var mHeaders = mirror.getLastColumn() > 0
         ? mirror.getRange(1, 1, 1, mirror.getLastColumn()).getValues()[0].map(function (h) { return String(h).trim(); })
-        : KOLOM_NOTIF.slice();
+        : kolomNotif_(kind).slice();
       var mRows = allRows.map(function (rowVals) {
         return mHeaders.map(function (h) {
           var i = headers.indexOf(h);
@@ -2117,6 +2125,7 @@ function sendNotifikasiToko_(tipe, judul, pesan, stores, dibuatOleh, lampiran) {
         if (h === 'Pesan') return pesan;
         if (h === 'Status') return 'Terkirim';
         if (h === 'Lampiran') return lampiran;
+        if (h === 'Pengirim User') return dibuatOleh || '';
         if (h === 'Dibuat Oleh') return dibuatOleh || '';
         return '';
       });
@@ -2174,31 +2183,47 @@ function getNotifikasiList(data) {
   return r;
 }
 
-/** Riwayat broadcast yang DIKIRIM oleh sesi saat ini (toko: ke anggota/karyawan; admin: ke toko). */
+/** Apakah notifikasi anggota/karyawan/toko ini DIKIRIM oleh sesi saat ini (filter riwayat per tab). */
+function notifSentByMe_(n, u) {
+  var aku = String(u.Username || '').trim().toLowerCase();
+  if (aku && String(n.PengirimUser || '').trim().toLowerCase() === aku) return true;
+  var pt = String(n.PengirimToko || '').trim().toLowerCase();
+  var nama = String(u.NamaToko || '').trim().toLowerCase();
+  if (pt && nama && pt === nama) return true;
+  if (aku && String(n.DibuatOleh || '').trim().toLowerCase() === aku) return true;
+  return false;
+}
+
+/** Riwayat broadcast yang DIKIRIM oleh sesi saat ini, per tab (data.kind = toko|anggota|karyawan). */
 function getBroadcastRiwayat(data) {
   data = data || {};
   var u = validasiSesi(String(data.token || '').trim());
   if (!u) return getErrorObj_('Sesi berakhir. Silakan login kembali.');
   var search = String(data.search || '').toLowerCase().trim();
+  var isAdmin = String(u.Role || '').toLowerCase() === 'admin';
+  var want = String(data.kind || '').toLowerCase().trim();
+  if (want === 'toko' && !isAdmin) want = '';
+  var kinds = isAdmin ? ['toko', 'anggota', 'karyawan'] : ['anggota', 'karyawan'];
+  if (want && want !== 'semua') kinds = kinds.filter(function (k) { return k === want; });
   var merge = [];
   var msg = '';
-  if (String(u.Role || '').toLowerCase() === 'admin') {
-    var resT = readNotifikasiToko_();
-    if (msg.indexOf(resT.message || '') < 0) msg = (msg ? msg + ' ' : '') + (resT.message || '');
-    var aku = String(u.Username || '');
-    (resT.list || []).forEach(function (n) {
-      if (String(n.DibuatOleh || '').trim() === aku) merge.push(n);
-    });
-  } else {
-    [['anggota', 'Anggota'], ['karyawan', 'Karyawan']].forEach(function (pair) {
-      var res = readNotifikasiExt_(pair[0]);
+  kinds.forEach(function (k) {
+    if (k === 'toko') {
+      var resT = readNotifikasiToko_();
+      if (msg.indexOf(resT.message || '') < 0) msg = (msg ? msg + ' ' : '') + (resT.message || '');
+      (resT.list || []).forEach(function (n) {
+        if (notifSentByMe_(n, u)) merge.push(n);
+      });
+    } else {
+      var res = readNotifikasiExt_(k);
       if (msg.indexOf(res.message || '') < 0) msg = (msg ? msg + ' ' : '') + (res.message || '');
       (res.list || []).forEach(function (n) {
-        n.Kind = pair[1];
-        if (notifPribadiSentBy_(n, u)) merge.push(n);
+        n.Kind = k === 'anggota' ? 'Anggota' : 'Karyawan';
+        if (notifSentByMe_(n, u)) merge.push(n);
       });
-    });
-  }
+    }
+  });
+  if (!kinds.length) msg = 'Jenis broadcast tidak tersedia untuk peran Anda.';
   if (search) {
     merge = merge.filter(function (n) {
       return fieldsMatch_(n, ['Judul', 'Pesan', 'Target', 'DetailTarget', 'Tipe'], search);
@@ -2260,9 +2285,10 @@ function tandaiDibacaOnSheet_(sheet, tgl, judul, detail, username) {
     var rowJudul = String(row[judulCol - 1]);
     if (rowTgl !== tgl || rowJudul !== judul) continue;
     if (detail) {
-      var rowDet = detCol > 0 ? String(row[detCol - 1]) : '';
-      var rowTar = tarCol > 0 ? String(row[tarCol - 1]) : '';
-      if (rowDet !== detail && rowTar !== detail) continue;
+      var detBersih = formatCell_(detail);
+      var rowDet = detCol > 0 ? formatCell_(row[detCol - 1]) : '';
+      var rowTar = tarCol > 0 ? formatCell_(row[tarCol - 1]) : '';
+      if (rowDet !== detBersih && rowTar !== detBersih) continue;
     }
     var r = i + 2;
     var cur = '';
@@ -2470,6 +2496,12 @@ function kodeTeks_(val) {
   return s === '' ? '' : "'" + s;
 }
 
+/** Prefix apostrof hanya bila nilai diawali angka (NIP / No Anggota), agar nol di depan tidak hilang. */
+function teksIdent_(val) {
+  var s = String(val === undefined || val === null ? '' : val).trim();
+  return /^\d/.test(s) ? "'" + s : s;
+}
+
 /**
  * Kolom yang harus diperlakukan sebagai teks kode.
  * Dipakai agar angka nol di depan (mis. "03260001") tidak hilang saat dibaca
@@ -2481,7 +2513,7 @@ function isKodeTextCol_(header) {
     h === 'idpiutang' || h === 'idtransaksi' || h === 'nota' || h === 'notatoko' ||
     h === 'nip' || h === 'nipbaru' || h === 'niplama' || h === 'noanggota' ||
     h === 'nopegawai' || h === 'notelp' || h === 'notelepon' || h === 'nohp' ||
-    h === 'kodetoko' || h === 'username';
+    h === 'kodetoko' || h === 'username' || h === 'detailtarget';
 }
 
 /**

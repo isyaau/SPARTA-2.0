@@ -630,7 +630,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.60</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.61</div>
       </div>
     </div>
   </div>
@@ -668,7 +668,7 @@
       <button class="sidebar-toggle d-none d-lg-flex" onclick="toggleSidebarMini()" id="sidebar-toggle-btn" title="Ciutkan / perbesar sidebar" aria-label="Ciutkan atau perbesar sidebar">
         <i class="bi bi-chevron-left" id="sidebar-toggle-icon"></i><span>Ciutkan Sidebar</span>
       </button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.60</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.61</small>
     </div>
   </aside>
 
@@ -1590,11 +1590,17 @@
           </div>
           <button type="button" class="btn btn-success" id="broadcast-btn" onclick="bukaModalBroadcast()"><i class="bi bi-send me-1"></i>Kirim Broadcast</button>
         </div>
-        <div class="small text-muted">Toko dapat mengirim ke <b>Anggota</b> atau <b>Karyawan</b>; Admin dapat mengirim ke <b>Toko</b>. Riwayat pengiriman Anda tampil di bawah.</div>
+        <div class="small text-muted">Toko dapat mengirim ke <b>Anggota</b> atau <b>Karyawan</b>; Admin dapat mengirim ke <b>Toko</b>. Pilih tab di bawah untuk melihat riwayat pengiriman Anda per jenis penerima.</div>
       </div>
     </div>
 
-    <div class="card mt-4">
+    <div class="tabbar mt-3" role="tablist" id="bcast-tabs">
+      <button class="tab-btn active" id="bcast-tab-toko" onclick="bcastTab('toko')"><i class="bi bi-shop"></i>Toko</button>
+      <button class="tab-btn" id="bcast-tab-anggota" onclick="bcastTab('anggota')"><i class="bi bi-people"></i>Anggota</button>
+      <button class="tab-btn" id="bcast-tab-karyawan" onclick="bcastTab('karyawan')"><i class="bi bi-briefcase"></i>Karyawan</button>
+    </div>
+
+    <div class="card">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
           <h6 class="fw-bold mb-0">Riwayat Broadcast yang Anda Kirim <span id="bcast-status" class="sub fw-normal"></span></h6>
@@ -1604,18 +1610,12 @@
               <input id="bcast-cari" class="form-control border-start-0" placeholder="Cari judul / pesan / target..." oninput="searchBroadcast()" autocomplete="off">
               <button class="btn btn-outline-secondary" type="button" onclick="clearBroadcastSearch()" title="Hapus pencarian"><i class="bi bi-x-lg"></i></button>
             </div>
-            <select id="bcast-filter" class="form-select form-select-sm w-auto" onchange="filterBroadcast()" title="Filter jenis">
-              <option value="semua">Semua Jenis</option>
-              <option value="Anggota">Anggota</option>
-              <option value="Karyawan">Karyawan</option>
-              <option value="Toko">Toko</option>
-            </select>
           </div>
         </div>
         <div class="table-responsive">
           <table class="table table-hover table-sm align-middle">
             <thead class="table-light">
-              <tr><th class="small text-uppercase text-muted">Waktu</th><th class="small text-uppercase text-muted">Jenis</th><th class="small text-uppercase text-muted">Tipe</th><th class="small text-uppercase text-muted">Target</th><th class="small text-uppercase text-muted">Judul</th><th class="small text-uppercase text-muted">Pesan</th><th class="small text-uppercase text-muted">Status</th></tr>
+              <tr><th class="small text-uppercase text-muted">Waktu</th><th class="small text-uppercase text-muted">Pengirim</th><th class="small text-uppercase text-muted">Tipe</th><th class="small text-uppercase text-muted">Target</th><th class="small text-uppercase text-muted">Judul</th><th class="small text-uppercase text-muted">Pesan</th><th class="small text-uppercase text-muted">Status</th></tr>
             </thead>
             <tbody id="tabel-broadcast"></tbody>
           </table>
@@ -2802,7 +2802,7 @@
     rvNameIndex: -1,
     rvNameSeq: 0,
     rpKind: 'anggota',
-    bcastFilter: 'semua',
+    bcastFilter: 'anggota',
     notifPage: null,
     notifAll: null,
     notifKey: '',
@@ -2870,10 +2870,19 @@
   function clearNotifikasiSearch() { var i = $('notif-cari'); if (i) i.value = ''; searchNotifikasi(); }
   var searchBroadcast = debounce(function () { PAGE.broadcast.page = 1; loadBroadcast(true); });
   function clearBroadcastSearch() { var i = $('bcast-cari'); if (i) i.value = ''; searchBroadcast(); }
-  function filterBroadcast() {
-    STATE.bcastFilter = $('bcast-filter') ? $('bcast-filter').value : 'semua';
+  function bcastSetTab(kind) {
+    if (kind === 'toko' && SESSION.role !== 'admin') kind = 'anggota';
+    STATE.bcastFilter = kind;
+    ['toko', 'anggota', 'karyawan'].forEach(function (k) {
+      var b = $('bcast-tab-' + k);
+      if (!b) return;
+      if (k === kind) b.classList.add('active'); else b.classList.remove('active');
+    });
+  }
+  function bcastTab(kind) {
+    bcastSetTab(kind);
     PAGE.broadcast.page = 1;
-    renderBroadcast();
+    loadBroadcast(true);
   }
 
   function showToast(msg, isError) {
@@ -3306,6 +3315,9 @@
     document.querySelectorAll('#sidebar-nav .admin-only').forEach(function (el) {
       el.style.display = isAdmin ? '' : 'none';
     });
+    var tabToko = $('bcast-tab-toko');
+    if (tabToko) tabToko.style.display = isAdmin ? '' : 'none';
+    bcastSetTab(isAdmin ? 'toko' : 'anggota');
   }
 
   function showPage(name) {
@@ -5568,7 +5580,7 @@ function padDigit(s, n) {
 
   function loadBroadcast(force) {
     var q = $('bcast-cari') ? String($('bcast-cari').value || '') : '';
-    var key = 'bcast_' + q.toLowerCase();
+    var key = 'bcast_' + STATE.bcastFilter + '_' + q.toLowerCase();
     if (!force && STATE.bcastAll !== null && key === STATE.bcastKey) { renderBroadcast(); return; }
     busy(true, 'Memuat riwayat broadcast...');
     google.script.run
@@ -5582,7 +5594,7 @@ function padDigit(s, n) {
         renderBroadcast();
       })
       .withFailureHandler(function (e) { busy(false); showToast(e.message || 'Gagal memuat riwayat broadcast.', true); })
-      .getBroadcastRiwayat({ token: SESSION.token, search: q, full: true });
+      .getBroadcastRiwayat({ token: SESSION.token, search: q, kind: STATE.bcastFilter, full: true });
   }
 
   function renderBroadcast() {
@@ -5590,8 +5602,7 @@ function padDigit(s, n) {
     if (!tb) return;
     if (STATE.bcastAll === null) { tb.innerHTML = '<tr><td colspan="7" class="empty">Memuat data...</td></tr>'; return; }
     var list = STATE.bcastAll.filter(function (n) {
-      if (STATE.bcastFilter !== 'semua' && String(n.Kind).toLowerCase() !== STATE.bcastFilter) return false;
-      return true;
+      return String(n.Kind || '').toLowerCase() === STATE.bcastFilter;
     });
     var r = localPage(list, PAGE.broadcast.page, PAGE.broadcast.size);
     PAGE.broadcast.pages = r.pages;
@@ -5601,17 +5612,15 @@ function padDigit(s, n) {
       return;
     }
     tb.innerHTML = r.list.map(function (n) {
-      var pengirim = n.PengirimToko ? esc(n.PengirimToko) : 'Anda';
-      if (n.PengirimUser) pengirim += '<div class="small text-muted">' + esc(n.PengirimUser) + '</div>';
+      var sender = n.PengirimUser || n.DibuatOleh || '';
+      var pengirim = n.PengirimToko
+        ? esc(n.PengirimToko) + (sender ? '<div class="small text-muted">' + esc(sender) + '</div>' : '')
+        : (sender ? esc(sender) : 'Anda');
       return '<tr>' +
         '<td class="text-nowrap small">' + esc(n.Waktu) + '</td>' +
-        '<td>' + (String(n.Kind) === 'Anggota'
-          ? '<span class="badge rounded-pill text-bg-primary">Anggota</span>'
-          : String(n.Kind) === 'Toko'
-            ? '<span class="badge rounded-pill text-bg-secondary">Toko</span>'
-            : '<span class="badge rounded-pill text-bg-info">Karyawan</span>') + '</td>' +
+        '<td class="small">' + pengirim + '</td>' +
         '<td>' + esc(n.Tipe) + '</td>' +
-        '<td>' + esc(n.Target) + '<div class="small text-muted">' + esc(n.DetailTarget) + '</div></td>' +
+        '<td>' + esc(n.Target || '') + '<div class="small text-muted">' + esc(n.DetailTarget) + '</div></td>' +
         '<td>' + esc(n.Judul) + (parseLampiran_(n.Lampiran).length ? ' <i class="bi bi-paperclip small text-muted" title="Ada lampiran"></i>' : '') + '</td>' +
         '<td class="small text-muted">' + esc(ringkasPesan(n.Pesan || '', 60)) + '</td>' +
         '<td>' + badge(n.Status || 'Terkirim') + '</td>' +
@@ -6118,6 +6127,8 @@ function padDigit(s, n) {
         STATE.notifAll = null;
         STATE.bcastAll = null;
         loadNotifikasi(true);
+        bcastSetTab(kind);
+        PAGE.broadcast.page = 1;
         if ($('page-broadcast') && $('page-broadcast').classList.contains('active')) loadBroadcast(true);
         refreshNotifBell();
       })
