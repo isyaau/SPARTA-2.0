@@ -630,7 +630,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.61</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.62</div>
       </div>
     </div>
   </div>
@@ -668,7 +668,7 @@
       <button class="sidebar-toggle d-none d-lg-flex" onclick="toggleSidebarMini()" id="sidebar-toggle-btn" title="Ciutkan / perbesar sidebar" aria-label="Ciutkan atau perbesar sidebar">
         <i class="bi bi-chevron-left" id="sidebar-toggle-icon"></i><span>Ciutkan Sidebar</span>
       </button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.61</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.62</small>
     </div>
   </aside>
 
@@ -1249,19 +1249,31 @@
                   <div class="transaction-step-title"><strong>Verifikasi Pemegang</strong><span>Pastikan pemilik kredit sudah sesuai sebelum disimpan.</span></div>
                 </div>
                 <div class="row g-3 align-items-start">
-                  <div class="col-lg-4">
+                  <div class="col-lg-3">
                     <span class="transaction-type-label">Jenis Pemegang</span>
                     <div class="transaction-type-switch" role="group" aria-label="Jenis pemegang kredit">
                       <button type="button" class="transaction-type-option active" id="rp-type-a" onclick="rpType('anggota')" aria-pressed="true"><i class="bi bi-people"></i>Anggota</button>
                       <button type="button" class="transaction-type-option" id="rp-type-k" onclick="rpType('karyawan')" aria-pressed="false"><i class="bi bi-briefcase"></i>Karyawan</button>
                     </div>
                   </div>
-                  <div class="col-lg-8">
+                  <div class="col-lg-6">
+                    <label class="transaction-field-label" for="rp-name" id="rp-name-label">Cari Nama Anggota</label>
+                    <div class="holder-picker" id="rp-name-wrap">
+                      <div class="input-group">
+                        <span class="input-group-text bg-light text-muted"><i class="bi bi-search"></i></span>
+                        <input id="rp-name" class="form-control border-start-0" placeholder="Ketik nama anggota, lalu pilih hasil" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="rp-name-results" oninput="searchRpName()" onfocus="searchRpName()" onkeydown="rpNameKey(event)">
+                      </div>
+                      <div id="rp-name-results" class="holder-picker-menu" role="listbox" hidden></div>
+                    </div>
+                    <div class="transaction-hint" id="rp-name-help">Hasil pencarian menampilkan nama, No Anggota, dan kelompok.</div>
+                  </div>
+                  <div class="col-lg-3">
                     <label class="transaction-field-label" for="rp-no" id="rp-no-label">No Anggota *</label>
                     <div class="input-group">
                       <input id="rp-no" class="form-control" placeholder="contoh: A0001">
-                      <button type="button" class="btn btn-primary px-3" onclick="verifikasiPemegangRp()"><i class="bi bi-patch-check me-1"></i>Verifikasi</button>
+                      <button type="button" class="btn btn-primary px-3" onclick="verifikasiPemegangRp()" title="Verifikasi pemegang" aria-label="Verifikasi pemegang"><i class="bi bi-patch-check"></i></button>
                     </div>
+                    <div class="transaction-hint">Atau isi nomor lalu verifikasi.</div>
                   </div>
                   <div class="col-12">
                     <div id="rp-kartu" class="mt-1"></div>
@@ -2802,6 +2814,9 @@
     rvNameIndex: -1,
     rvNameSeq: 0,
     rpKind: 'anggota',
+    rpNameResults: [],
+    rpNameIndex: -1,
+    rpNameSeq: 0,
     bcastFilter: 'anggota',
     notifPage: null,
     notifAll: null,
@@ -2849,6 +2864,7 @@
   }
   var searchKaryawan = debounce(function () { PAGE.karyawan.page = 1; renderKaryawan(); });
   var searchRvName = debounce(cariVoucherName, 350);
+  var searchRpName = debounce(cariRpName, 350);
   var searchPiutang = debounce(function () { PAGE.piutang.page = 1; loadPiutang(true); });
   var searchMutasi = debounce(function () { PAGE.mutasi.page = 1; loadMutasi(true); });
   var searchVoucher = debounce(function () { PAGE.voucher.page = 1; loadVoucher(true); });
@@ -4553,10 +4569,13 @@
       $('rm-panel-' + n).style.display = active ? '' : 'none';
     });
     if (name === 'voucher') {
+      hideRpNameResults();
       setTimeout(function () {
         var barcode = $('rv-barcode');
         if (barcode && document.activeElement !== $('rv-no')) barcode.focus();
       }, 0);
+    } else {
+      hideRvNameResults();
     }
   }
 
@@ -4631,7 +4650,7 @@
   }
 
   function setRvNameIndex(index) {
-    var options = document.querySelectorAll('.holder-picker-option');
+    var options = document.querySelectorAll('#rv-name-results .holder-picker-option');
     if (!options.length) return;
     STATE.rvNameIndex = (index + options.length) % options.length;
     Array.prototype.forEach.call(options, function (el, i) {
@@ -4704,6 +4723,125 @@
       .cariPemegangNama({ kind: kind, nama: nama });
   }
 
+  function hideRpNameResults() {
+    var input = $('rp-name');
+    var menu = $('rp-name-results');
+    STATE.rpNameResults = [];
+    STATE.rpNameIndex = -1;
+    if (input) {
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+    }
+    if (menu) menu.hidden = true;
+  }
+
+  function showRpNameMessage(message) {
+    var input = $('rp-name');
+    var menu = $('rp-name-results');
+    STATE.rpNameResults = [];
+    STATE.rpNameIndex = -1;
+    input.removeAttribute('aria-activedescendant');
+    menu.innerHTML = '<div class="holder-picker-message">' + esc(message) + '</div>';
+    menu.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+  }
+
+  function renderRpNameResults(list, kind) {
+    var input = $('rp-name');
+    var menu = $('rp-name-results');
+    list = Array.isArray(list) ? list : [];
+    STATE.rpNameResults = list;
+    STATE.rpNameIndex = -1;
+    if (!list.length) {
+      showRpNameMessage('Nama tidak ditemukan.');
+      return;
+    }
+    var idLabel = kind === 'karyawan' ? 'NIP' : 'No Anggota';
+    var unitLabel = kind === 'karyawan' ? 'Bagian' : 'Kelompok';
+    menu.innerHTML = list.map(function (p, i) {
+      return '<button type="button" id="rp-name-option-' + i + '" class="holder-picker-option" role="option" aria-selected="false" onmousedown="event.preventDefault()" onclick="pilihRpName(' + i + ')">' +
+        '<span class="holder-picker-name">' + esc(p.nama) + '</span>' +
+        '<span class="holder-picker-meta">' + idLabel + ': ' + esc(p.no) + ' &middot; ' + unitLabel + ': ' + esc(p.unit || '-') + '</span>' +
+        '</button>';
+    }).join('');
+    menu.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+  }
+
+  function setRpNameIndex(index) {
+    var options = document.querySelectorAll('#rp-name-results .holder-picker-option');
+    if (!options.length) return;
+    STATE.rpNameIndex = (index + options.length) % options.length;
+    Array.prototype.forEach.call(options, function (el, i) {
+      var active = i === STATE.rpNameIndex;
+      el.classList.toggle('active', active);
+      el.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    var selected = options[STATE.rpNameIndex];
+    $('rp-name').setAttribute('aria-activedescendant', selected.id);
+    try { selected.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+  }
+
+  function rpNameKey(e) {
+    var menu = $('rp-name-results');
+    if (!menu || menu.hidden) return;
+    if (e.key === 'ArrowDown' || e.keyCode === 40) {
+      e.preventDefault();
+      setRpNameIndex(STATE.rpNameIndex + 1);
+      return;
+    }
+    if (e.key === 'ArrowUp' || e.keyCode === 38) {
+      e.preventDefault();
+      setRpNameIndex(STATE.rpNameIndex - 1);
+      return;
+    }
+    if ((e.key === 'Enter' || e.keyCode === 13) && STATE.rpNameResults.length) {
+      e.preventDefault();
+      pilihRpName(STATE.rpNameIndex < 0 ? 0 : STATE.rpNameIndex);
+      return;
+    }
+    if (e.key === 'Escape' || e.keyCode === 27) {
+      e.preventDefault();
+      STATE.rpNameSeq++;
+      hideRpNameResults();
+    }
+  }
+
+  function pilihRpName(index) {
+    var p = STATE.rpNameResults[index];
+    if (!p) return;
+    STATE.rpNameSeq++;
+    $('rp-no').value = p.no;
+    $('rp-name').value = p.nama;
+    hideRpNameResults();
+    verifikasiPemegangRp();
+  }
+
+  function cariRpName() {
+    var input = $('rp-name');
+    if (!input) return;
+    var nama = input.value.trim();
+    var seq = ++STATE.rpNameSeq;
+    if (!nama) { hideRpNameResults(); return; }
+    if (nama.length < 2) { showRpNameMessage('Ketik minimal 2 karakter.'); return; }
+    var kind = STATE.rpKind;
+    showRpNameMessage('Mencari nama...');
+    google.script.run
+      .withSuccessHandler(function (r) {
+        if (STATE.rpKind !== kind || STATE.rpNameSeq !== seq || input.value.trim() !== nama) return;
+        if (!r || !r.ok) {
+          showRpNameMessage((r && r.message) || 'Gagal mencari nama.');
+          return;
+        }
+        renderRpNameResults(r.list, kind);
+      })
+      .withFailureHandler(function (e) {
+        if (STATE.rpKind !== kind || STATE.rpNameSeq !== seq) return;
+        showRpNameMessage('Error: ' + e.message);
+      })
+      .cariPemegangNama({ kind: kind, nama: nama });
+  }
+
   function rpType(kind) {
     STATE.rpKind = kind;
     var kary = kind === 'karyawan';
@@ -4714,6 +4852,14 @@
     $('rp-no-label').textContent = (kary ? 'NIP' : 'No Anggota') + ' *';
     $('rp-no').setAttribute('aria-label', kary ? 'NIP' : 'No Anggota');
     $('rp-no').placeholder = kary ? 'contoh: 1985XXXX' : 'contoh: A0001';
+    $('rp-name-label').textContent = kary ? 'Cari Nama Karyawan' : 'Cari Nama Anggota';
+    $('rp-name').placeholder = kary ? 'Ketik nama karyawan, lalu pilih hasil' : 'Ketik nama anggota, lalu pilih hasil';
+    $('rp-name-help').textContent = kary
+      ? 'Hasil pencarian menampilkan nama, NIP, dan bagian.'
+      : 'Hasil pencarian menampilkan nama, No Anggota, dan kelompok.';
+    $('rp-name').value = '';
+    STATE.rpNameSeq++;
+    hideRpNameResults();
     $('rp-kartu').innerHTML = '';
   }
 
@@ -5200,7 +5346,9 @@ function padDigit(s, n) {
           showToast(r.message);
           if (rpBuktiBase64 && r.ID) pUploadBukti(STATE.rpKind, r.ID, rpBuktiBase64);
           rpHapusBukti();
-          $('rp-no').value = ''; $('rp-jumlah').value = ''; $('rp-nota').value = ''; $('rp-kartu').innerHTML = '';
+          $('rp-no').value = ''; $('rp-name').value = ''; $('rp-jumlah').value = ''; $('rp-nota').value = ''; $('rp-kartu').innerHTML = '';
+          STATE.rpNameSeq++;
+          hideRpNameResults();
           refreshRpNotaPreview();
           loadDashboard();
         } else showToast(r.message, true);
