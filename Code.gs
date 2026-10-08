@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.67';
+var APP_VERSION = '2.0.68';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -3091,6 +3091,23 @@ function getPiutangKaryawanPage(data) {
   return r;
 }
 
+/**
+ * Parse timestamp pilihan user (frontend datetime-local, 'yyyy-MM-ddTHH:mm[:ss]'
+ * atau 'yyyy-MM-dd HH:mm[:ss]'). Kembalikan Date, atau null bila kosong/tidak valid.
+ * Dipakai catat kredit anggota/karyawan agar kolom Waktu & tanggal nota bisa diedit.
+ */
+function parseWaktuCatat_(nilai) {
+  var s = String(nilai || '').trim().replace('T', ' ');
+  var m = s.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!m) return null;
+  var th = Number(m[1]), bl = Number(m[2]), hr = Number(m[3]);
+  var jm = Number(m[4]), mn = Number(m[5]), sc = m[6] ? Number(m[6]) : 0;
+  if (bl < 1 || bl > 12 || hr < 1 || hr > 31 || jm > 23 || mn > 59 || sc > 59) return null;
+  var d = new Date(th, bl - 1, hr, jm, mn, sc);
+  if (isNaN(d.getTime()) || d.getFullYear() !== th || d.getMonth() !== bl - 1 || d.getDate() !== hr) return null;
+  return d;
+}
+
 function catatPiutangKaryawanExt(data, internal) {
   var _tK0 = Date.now();
   data = data || {};
@@ -3119,7 +3136,8 @@ function catatPiutangKaryawanExt(data, internal) {
   }
   var notaLengkap = '';
   try {
-    var now = new Date();
+    // Timestamp bisa diedit user saat catat kredit; default tetap sekarang.
+    var now = parseWaktuCatat_(data.Waktu) || new Date();
     var waktu = Utilities.formatDate(now, getTimeZone_(), 'yyyy-MM-dd HH:mm:ss');
 
     var tglNota = now;
@@ -3405,7 +3423,8 @@ function catatPiutangAnggotaExt(data, internal) {
   }
   var notaLengkap = '';
   try {
-    var now = new Date();
+    // Timestamp bisa diedit user saat catat kredit; default tetap sekarang.
+    var now = parseWaktuCatat_(data.Waktu) || new Date();
     var waktu = Utilities.formatDate(now, getTimeZone_(), 'yyyy-MM-dd HH:mm:ss');
 
     var tglNota = now;
@@ -4508,7 +4527,8 @@ function catatPiutang(data) {
     var isKaryawan = data.kind === 'karyawan';
     var no = String(data.No || '').trim();
     if (!no) return getErrorObj_('Isi nomor ' + (isKaryawan ? 'NIP' : 'No Anggota') + ' terlebih dahulu.');
-    var jumlah = cleanNum_(data.Jumlah);
+    // Frontend mengirim "Nominal"; jalur lama memakai "Jumlah" — keduanya diterima.
+    var jumlah = cleanNum_(data.Jumlah !== undefined && data.Jumlah !== '' ? data.Jumlah : data.Nominal);
     if (jumlah <= 0) return getErrorObj_('Jumlah kredit harus lebih dari 0.');
 
     if (isKaryawan) {
@@ -4517,7 +4537,8 @@ function catatPiutang(data) {
         No: no,
         Nominal: jumlah,
         Nota: String(data.Nota || '').trim(),
-        Tanggal: String(data.Tanggal || '').trim()
+        Tanggal: String(data.Tanggal || '').trim(),
+        Waktu: String(data.Waktu || '').trim()
       });
     }
 
@@ -4526,7 +4547,8 @@ function catatPiutang(data) {
       No: no,
       Nominal: jumlah,
       Nota: String(data.Nota || '').trim(),
-      Tanggal: String(data.Tanggal || '').trim()
+      Tanggal: String(data.Tanggal || '').trim(),
+      Waktu: String(data.Waktu || '').trim()
     });
   } catch (e) {
     return getErrorObj_('Gagal mencatat kredit: ' + e.message);

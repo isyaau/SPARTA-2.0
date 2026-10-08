@@ -630,7 +630,7 @@
         </div>
         <div id="login-error" class="alert alert-danger py-1 px-2 small d-none"></div>
         <button class="btn btn-primary w-100" onclick="prosesLogin()"><i class="bi bi-box-arrow-in-right"></i> Masuk</button>
-        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.64</div>
+        <div class="text-center mt-3 small text-muted" id="login-version">v2.0.68</div>
       </div>
     </div>
   </div>
@@ -668,7 +668,7 @@
       <button class="sidebar-toggle d-none d-lg-flex" onclick="toggleSidebarMini()" id="sidebar-toggle-btn" title="Ciutkan / perbesar sidebar" aria-label="Ciutkan atau perbesar sidebar">
         <i class="bi bi-chevron-left" id="sidebar-toggle-icon"></i><span>Ciutkan Sidebar</span>
       </button>
-<small class="d-block text-center text-white-50 mt-2">v2.0.64</small>
+<small class="d-block text-center text-white-50 mt-2">v2.0.68</small>
     </div>
   </aside>
 
@@ -1301,8 +1301,16 @@
                       <input id="rp-jumlah" class="form-control" type="number" min="0" placeholder="0" inputmode="numeric">
                     </div>
                   </div>
+                  <div class="col-md-6">
+                    <label class="transaction-field-label" for="rp-waktu">Tanggal &amp; Waktu Catat *</label>
+                    <input id="rp-waktu" type="datetime-local" class="form-control" oninput="refreshRpNotaPreview()" onchange="refreshRpNotaPreview()">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="transaction-field-label">Pratinjau Nota Lengkap</label>
+                    <div class="form-control bg-light text-muted small" id="rp-nota-full" aria-live="polite">-</div>
+                  </div>
                 </div>
-                <div class="transaction-hint mt-2"><i class="bi bi-info-circle"></i> 4 digit akhir nota wajib diisi untuk anggota maupun karyawan.</div>
+                <div class="transaction-hint mt-2"><i class="bi bi-info-circle"></i> 4 digit akhir nota wajib diisi untuk anggota maupun karyawan. Tanggal &amp; waktu boleh disesuaikan bila pencatatan terlambat — tanggal pada nota otomatis mengikuti.</div>
               </section>
 
               <section class="transaction-step">
@@ -2359,7 +2367,16 @@
             </div>
             <div class="col-md-6">
               <label class="form-label small text-muted" for="p-nota">4 Digit Akhir Nota *</label>
-              <input id="p-nota" class="form-control" inputmode="numeric" maxlength="4" placeholder="contoh: 0021">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text bg-light text-muted" id="p-nota-prefix">-</span>
+                <input id="p-nota" class="form-control" inputmode="numeric" maxlength="4" placeholder="0021" oninput="refreshPNotaPreview()">
+              </div>
+              <div class="form-text small" id="p-nota-full"></div>
+            </div>
+            <div class="col-12">
+              <label class="form-label small text-muted" for="p-waktu">Tanggal &amp; Waktu Catat *</label>
+              <input id="p-waktu" type="datetime-local" class="form-control" oninput="refreshPNotaPreview()" onchange="refreshPNotaPreview()">
+              <div class="form-text small">Boleh disesuaikan bila pencatatan terlambat — tanggal pada nota menyesuaikan waktu ini.</div>
             </div>
             <div class="col-12">
               <label class="form-label small text-muted">Foto Bukti (opsional)</label>
@@ -2404,6 +2421,12 @@
                 <span class="input-group-text bg-light text-muted" id="pk-nota-prefix">-</span>
                 <input id="pk-nota" class="form-control" maxlength="4" placeholder="0001" oninput="refreshPkNotaPreview()">
               </div>
+              <div class="form-text small" id="pk-nota-full"></div>
+            </div>
+            <div class="col-12">
+              <label class="form-label small text-muted" for="pk-waktu">Tanggal &amp; Waktu Catat *</label>
+              <input id="pk-waktu" type="datetime-local" class="form-control" oninput="refreshPkNotaPreview()" onchange="refreshPkNotaPreview()">
+              <div class="form-text small">Boleh disesuaikan bila pencatatan terlambat — tanggal pada nota menyesuaikan waktu ini.</div>
             </div>
             <div class="col-12">
               <label class="form-label small text-muted">Foto Bukti (opsional)</label>
@@ -2473,7 +2496,7 @@
           <div class="col-12">
             <label class="form-label small text-muted" for="nb-lampiran">Lampiran PDF / Gambar (opsional)</label>
             <input type="file" class="form-control" id="nb-lampiran" accept=".pdf,application/pdf,image/*" multiple onchange="nbLampiranPilih(this)">
-            <div class="form-text">PDF atau gambar (JPG/PNG/GIF/WEBP), maksimal 5 MB per file dan maksimal 5 file. Berkas diunggah ke Google Drive dan dibagikan ke penerima.</div>
+            <div class="form-text">PDF atau gambar (JPG/PNG/GIF/WEBP), maksimal 5 MB per file dan maksimal 5 file. Berkas diunggah ke folder Google Drive sesuai jenis penerima (Anggota / Karyawan / Toko) dan dibagikan ke penerima.</div>
             <div id="nb-lampiran-list" class="mt-2 d-flex flex-column gap-2"></div>
             <div class="small text-muted mt-1" id="nb-lampiran-count">0 file</div>
           </div>
@@ -4021,7 +4044,9 @@
     $('p-noanggota').value = '';
     $('p-jumlah').value = '';
     $('p-nota').value = '';
+    $('p-waktu').value = nowLocalInput();
     pHapusBukti();
+    refreshPNotaPreview();
     bukaModal('modal-piutang');
   }
 
@@ -4029,13 +4054,14 @@
     var no = ($('p-noanggota').value || '').trim();
     var nominal = parseInt(($('p-jumlah').value || '0').replace(/\D/g, ''), 10) || 0;
     var nota4 = ($('p-nota').value || '').trim();
+    var waktu = nilaiWaktuCatat('p-waktu');
     if (!no) { showToast('Pilih No Anggota.', true); return; }
     if (nominal <= 0) { showToast('Nominal kredit wajib diisi.', true); return; }
     if (!/^\d{4}$/.test(nota4)) { showToast('4 digit akhir nota wajib diisi (4 digit angka).', true); return; }
-    kConfirm('Catat kredit anggota sebesar ' + formatIDR(nominal) + ' untuk ' + no + '?', function () { doAddPiutang(no, nominal, nota4); });
+    kConfirm('Catat kredit anggota sebesar ' + formatIDR(nominal) + ' untuk ' + no + '?', function () { doAddPiutang(no, nominal, nota4, waktu); });
   }
 
-  function doAddPiutang(no, nominal, nota4) {
+  function doAddPiutang(no, nominal, nota4, waktu) {
     busy(true, 'Menyimpan kredit anggota...');
     google.script.run
       .withSuccessHandler(function (r) {
@@ -4045,12 +4071,14 @@
           if (pBuktiBase64 && r.ID) pUploadBukti('anggota', r.ID, pBuktiBase64);
           pHapusBukti();
           $('p-noanggota').value = ''; $('p-jumlah').value = ''; $('p-nota').value = '';
+          $('p-waktu').value = nowLocalInput();
+          refreshPNotaPreview();
           tutupModal('modal-piutang');
           loadPiutang(true); loadDashboard();
         } else showToast(r.message, true);
       })
       .withFailureHandler(function (e) { busy(false); showToast('Error: ' + e.message, true); })
-      .catatPiutang({ kind: 'anggota', token: SESSION.token, No: no, Nominal: nominal, Nota: nota4 });
+      .catatPiutang({ kind: 'anggota', token: SESSION.token, No: no, Nominal: nominal, Nota: nota4, Tanggal: waktu.slice(0, 10), Waktu: waktu.replace('T', ' ') + ':00' });
   }
 
   function bacaBase64(file, done) {
@@ -4238,6 +4266,7 @@
     $('pk-no').value = '';
     $('pk-nominal').value = '';
     $('pk-nota').value = '';
+    $('pk-waktu').value = nowLocalInput();
     pkHapusBukti();
     refreshPkNotaPreview();
     bukaModal('modal-piutangk');
@@ -4268,13 +4297,14 @@
     var no = ($('pk-no').value || '').trim();
     var nominal = parseInt(($('pk-nominal').value || '0').replace(/\D/g, ''), 10) || 0;
     var nota4 = ($('pk-nota').value || '').trim();
+    var waktu = nilaiWaktuCatat('pk-waktu');
     if (!no) { showToast('NIP / No Anggota wajib diisi.', true); return; }
     if (nominal <= 0) { showToast('Nominal kredit wajib diisi.', true); return; }
     if (!/^\d{4}$/.test(nota4)) { showToast('4 digit akhir nota wajib diisi (4 digit angka).', true); return; }
-    kConfirm('Catat kredit karyawan sebesar ' + formatIDR(nominal) + ' untuk ' + no + '?', function () { doCatatPiutangKaryawan(no, nominal, nota4); });
+    kConfirm('Catat kredit karyawan sebesar ' + formatIDR(nominal) + ' untuk ' + no + '?', function () { doCatatPiutangKaryawan(no, nominal, nota4, waktu); });
   }
 
-  function doCatatPiutangKaryawan(no, nominal, nota4) {
+  function doCatatPiutangKaryawan(no, nominal, nota4, waktu) {
     busy(true, 'Menyimpan kredit karyawan...');
     google.script.run
       .withSuccessHandler(function (r) {
@@ -4284,6 +4314,7 @@
           if (pkBuktiBase64 && r.ID) pUploadBukti('karyawan', r.ID, pkBuktiBase64);
           pkHapusBukti();
           $('pk-no').value = ''; $('pk-nominal').value = ''; $('pk-nota').value = '';
+          $('pk-waktu').value = nowLocalInput();
           refreshPkNotaPreview();
           tutupModal('modal-piutangk');
           loadPiutangKaryawan(true);
@@ -4291,7 +4322,7 @@
         } else showToast(r.message, true);
       })
       .withFailureHandler(function (e) { busy(false); showToast('Error: ' + e.message, true); })
-      .catatPiutang({ kind: 'karyawan', token: SESSION.token, No: no, Nominal: nominal, Nota: nota4 });
+      .catatPiutang({ kind: 'karyawan', token: SESSION.token, No: no, Nominal: nominal, Nota: nota4, Tanggal: waktu.slice(0, 10), Waktu: waktu.replace('T', ' ') + ':00' });
   }
 
   var pkBuktiBase64 = '';
@@ -4576,6 +4607,9 @@
       }, 0);
     } else {
       hideRvNameResults();
+      var rpW = $('rp-waktu');
+      if (rpW && !rpW.value) rpW.value = nowLocalInput();
+      refreshRpNotaPreview();
     }
   }
 
@@ -5047,6 +5081,21 @@ function padDigit(s, n) {
     return d.getFullYear() + '-' + padDigit(String(d.getMonth() + 1), 2) + '-' + padDigit(String(d.getDate()), 2);
   }
 
+  // Nilai default untuk input datetime-local catat kredit (waktu perangkat).
+  function nowLocalInput() {
+    var d = new Date();
+    return d.getFullYear() + '-' + padDigit(String(d.getMonth() + 1), 2) + '-' + padDigit(String(d.getDate()), 2) +
+      'T' + padDigit(String(d.getHours()), 2) + ':' + padDigit(String(d.getMinutes()), 2);
+  }
+
+  // Ambil timestamp catat kredit; kosong = waktu sekarang.
+  function nilaiWaktuCatat(id) {
+    var el = $(id);
+    var v = el ? String(el.value || '').trim() : '';
+    if (!v) v = nowLocalInput();
+    return v;
+  }
+
   function notaPrefixPerTgl(tgl) {
     var kode = SESSION.KodeToko || '';
     var d = tgl ? new Date(tgl + 'T00:00:00') : new Date();
@@ -5074,12 +5123,16 @@ function padDigit(s, n) {
     }
   }
 
+  function refreshPNotaPreview() {
+    renderNotaPreview('p-nota-prefix', 'p-nota-full', nilaiWaktuCatat('p-waktu').slice(0, 10), $('p-nota').value);
+  }
+
   function refreshPkNotaPreview() {
-    renderNotaPreview('pk-nota-prefix', 'pk-nota-full', null, $('pk-nota').value);
+    renderNotaPreview('pk-nota-prefix', 'pk-nota-full', nilaiWaktuCatat('pk-waktu').slice(0, 10), $('pk-nota').value);
   }
 
   function refreshRpNotaPreview() {
-    renderNotaPreview('rp-nota-prefix', 'rp-nota-full', todayStr(), $('rp-nota').value);
+    renderNotaPreview('rp-nota-prefix', 'rp-nota-full', nilaiWaktuCatat('rp-waktu').slice(0, 10), $('rp-nota').value);
   }
 
   function updateRvSum() {
@@ -5327,7 +5380,7 @@ function padDigit(s, n) {
     if (!no) { showToast('Isi ' + (STATE.rpKind === 'karyawan' ? 'NIP' : 'No Anggota') + '.', true); return; }
     if (!jumlah || jumlah <= 0) { showToast('Jumlah kredit wajib diisi.', true); return; }
     if (!/^\d{4}$/.test(String($('rp-nota').value || '').trim())) { showToast('4 digit akhir nota wajib diisi (4 digit angka).', true); return; }
-    STATE.rpSimpan = { no: no, jumlah: jumlah };
+    STATE.rpSimpan = { no: no, jumlah: jumlah, waktu: nilaiWaktuCatat('rp-waktu') };
     kConfirm('Simpan kredit baru sebesar ' + formatIDR(jumlah) + ' untuk ' + (STATE.rpKind === 'karyawan' ? 'NIP ' : 'No Anggota ') + no + '?', function () { doSimpanPiutang(); });
   }
 
@@ -5336,6 +5389,7 @@ function padDigit(s, n) {
     var d = STATE.rpSimpan || {};
     var no = d.no || $('rp-no').value.trim();
     var jumlah = d.jumlah || parseInt($('rp-jumlah').value, 10);
+    var waktu = d.waktu || nilaiWaktuCatat('rp-waktu');
     STATE.rpSimpan = null;
     busy(true, 'Menyimpan kredit...');
     google.script.run
@@ -5347,6 +5401,7 @@ function padDigit(s, n) {
           if (rpBuktiBase64 && r.ID) pUploadBukti(STATE.rpKind, r.ID, rpBuktiBase64);
           rpHapusBukti();
           $('rp-no').value = ''; $('rp-name').value = ''; $('rp-jumlah').value = ''; $('rp-nota').value = ''; $('rp-kartu').innerHTML = '';
+          $('rp-waktu').value = nowLocalInput();
           STATE.rpNameSeq++;
           hideRpNameResults();
           refreshRpNotaPreview();
@@ -5358,7 +5413,8 @@ function padDigit(s, n) {
         kind: STATE.rpKind,
         token: SESSION.token,
         No: no,
-        Tanggal: todayStr(),
+        Tanggal: waktu.slice(0, 10),
+        Waktu: waktu.replace('T', ' ') + ':00',
         Jumlah: jumlah,
         Nota: String($('rp-nota').value || '').trim()
       });
@@ -6022,7 +6078,7 @@ function padDigit(s, n) {
             showToast((e && e.message) || 'Gagal mengunggah lampiran "' + f.name + '".', true);
             selesai();
           })
-          .uploadLampiranBroadcast({ token: SESSION.token, base64: data, nama: f.name });
+          .uploadLampiranBroadcast({ token: SESSION.token, base64: data, nama: f.name, kind: ($('nb-kind') && $('nb-kind').value) || '' });
       };
       fr.onerror = function () {
         showToast('Gagal membaca "' + f.name + '".', true);
