@@ -14,7 +14,7 @@ var SHEET_NAMES = {
   UNIT: 'Unit'
 };
 
-var APP_VERSION = '2.0.68';
+var APP_VERSION = '2.0.69';
 
 var KOLOM = {
   ANGGOTA: ['NoAnggota', 'Nama', 'Alamat', 'NoHP', 'TanggalDaftar', 'Status'],
@@ -47,6 +47,9 @@ var LAMPIRAN_FOLDER_PROP = 'SPARTA_FOLDER_LAMPIRAN_BROADCAST';
 // "active spreadsheet"); fallback getId() di localSpreadsheetId_.
 var SPARTA_MAIN_ID = '1AJ5C-sKWympMrCJssqd-ahid3P6MAhy572T11_83GH8';
 var SYNC_MUTASI_KARYAWAN_SECRET_SHA256 = 'wFx2wgkz0f9WCzFMsu+7Q/S3aeMfOeDiUEDE3mDKRlA=';
+// Secret bridge HTTP (Cloudflare Worker -> doPost). SHA-256 base64 dari secret
+// yang dipasang sebagai secret worker SPARTA_BRIDGE_SECRET.
+var SPARTA_BRIDGE_SECRET_SHA256 = 'lMFg87Wu+h4R6X9ZRKo21mhOAJGb8qshJg1U2xOv14U=';
 
 /**
  * KONFIGURASI (ubah langsung di sini)
@@ -255,6 +258,43 @@ function getProfile(token) {
 
 function doGet() {
   return serveHtml_('Index', 'SPARTA KOPINKA - Sistem Pencatatan & Redeem Kredit');
+}
+
+/**
+ * Bridge HTTP untuk Cloudflare Worker (pengganti Apps Script Execution API).
+ * POST /exec dengan JSON { secret, fn, args } -> { response } atau { error }.
+ * Kompatibel dengan kontrak /api di cloudflare/worker.js.
+ */
+function doPost(e) {
+  try {
+    var body = {};
+    if (e && e.postData && e.postData.contents) body = JSON.parse(e.postData.contents);
+    var secret = String(body.secret || '');
+    var digest = Utilities.base64Encode(
+      Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, secret, Utilities.Charset.UTF_8)
+    );
+    if (!secret || digest !== SPARTA_BRIDGE_SECRET_SHA256) {
+      return bridgeJson_({ error: { message: 'Unauthorized', errorType: 'Unauthorized' } });
+    }
+    var fn = String(body.fn || '');
+    var args = Array.isArray(body.args) ? body.args : [];
+    var terlarang = fn === 'doGet' || fn === 'doPost' || fn === 'bukaAplikasi' || fn === 'jsonOut_';
+    if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(fn) || /_$/.test(fn) || terlarang) {
+      return bridgeJson_({ error: { message: 'Function not allowed: ' + fn, errorType: 'NotAllowed' } });
+    }
+    if (typeof this[fn] !== 'function') {
+      return bridgeJson_({ error: { message: 'Script function not found: ' + fn, errorType: 'NotFound' } });
+    }
+    return bridgeJson_({ response: this[fn].apply(null, args) });
+  } catch (err) {
+    return bridgeJson_({
+      error: { message: String((err && err.message) || err), errorType: (err && err.name) || 'Error', stack: (err && err.stack) || '' }
+    });
+  }
+}
+
+function bridgeJson_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
 
 function bukaAplikasi() {
